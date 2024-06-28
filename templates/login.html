@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        .captcha-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .captcha-img {
+            margin-left: 10px;
+            border-radius: 5px;
+        }
+
+        .change-captcha-btn {
+            border: none;
+            background: none;
+            padding: 0;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .change-captcha-btn i {
+            font-size: 1.5rem;
+            color: #007bff;
+        }
+
+        .captcha-input {
+            flex: 0 0 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Login</div>
+                    <div class="card-body">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                        <form method="POST" action="">
+                            <div class="form-group">
+                                <label for="username">Username</label>
+                                <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="password">Password</label>
+                                <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="captcha">Enter the code above</label>
+                                <div class="captcha-container">
+                                    <input type="text" class="form-control captcha-input" id="captcha" name="captcha" placeholder="Captcha" required>
+                                    <img src="{{ url_for('captcha_gen') }}" alt="CAPTCHA" class="captcha-img">
+                                    <button type="button" id="change-captcha" class="change-captcha-btn">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var changeCaptchaBtn = document.getElementById('change-captcha');
+            var captchaImg = document.querySelector('.captcha-img');
+
+            changeCaptchaBtn.addEventListener('click', function(event) {
+                event.preventDefault();
+                captchaImg.src = "{{ url_for('captcha_gen') }}?" + new Date().getTime();
+                document.getElementById('captcha').value = '';
+            });
+        });
+    </script>
+</body>
+</html>
