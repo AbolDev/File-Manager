@@ -114,7 +114,7 @@ def login():
             username = request.form['username']
             password = request.form['password']
             captcha = request.form['captcha']
-            if str(captcha) == session.get('captcha_text'):
+            if session.get('captcha_text') and str(captcha) == str(session.get('captcha_text')):
                 config = config()
                 if username == config['username'] and password == config['password']:
                     session['logged_in'] = True
