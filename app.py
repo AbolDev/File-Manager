@@ -3,14 +3,21 @@ from werkzeug.utils import secure_filename
 from captcha.image import ImageCaptcha
 from flask_cors import CORS
 import os
+import json
 import random
 import datetime
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = 'supersecretkey'
-app.config['UPLOAD_FOLDER'] = 'uploads'
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+
+def config():
+    with open("config.json", "rb") as file:
+        file_content = file.read()
+
+        config = json.loads(file_content)
+        return config
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -108,7 +115,8 @@ def login():
             password = request.form['password']
             captcha = request.form['captcha']
             if str(captcha) == session.get('captcha_text'):
-                if username == 'admin' and password == '12345':
+                config = config()
+                if username == config['username'] and password == config['password']:
                     session['logged_in'] = True
                     flash('Logged in successfully!', 'success')
                     session['captcha_text'] = None
@@ -185,4 +193,5 @@ def create_directory_route():
     return redirect(url_for('file_manager', current_path=current_path))
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=80, debug=False)
+    port = config()['port']
+    app.run(host="0.0.0.0", port=port, debug=False)
