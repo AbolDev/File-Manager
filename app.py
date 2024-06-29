@@ -8,8 +8,9 @@ import random
 import datetime
 
 app = Flask(__name__)
-CORS(app)
 app.secret_key = 'supersecretkey'
+CORS(app)
+
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 def config():
@@ -92,19 +93,15 @@ def index(path=''):
         return redirect(url_for('index', path=parent_path))
 
     files = get_file_details(full_path)
-    print(path)
     return render_template('index.html', files=files, current_path=path)
 
 @app.route('/captcha', methods=['GET', 'POST'])
 def captcha_gen():
-    captcha_text = str(random.randint(10000, 99999))
+    captcha_text = str(random.randint(10000, 99999)).replace('7', '8').replace('1', '2')
     captcha = ImageCaptcha()
     captcha_image = captcha.generate(captcha_text)
     img_bytes = captcha_image.getvalue()
     session['captcha_text'] = captcha_text
-
-    print(captcha_text)
-
     return img_bytes
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -114,9 +111,10 @@ def login():
             username = request.form['username']
             password = request.form['password']
             captcha = request.form['captcha']
+            
             if session.get('captcha_text') and str(captcha) == str(session.get('captcha_text')):
-                config = config()
-                if username == config['username'] and password == config['password']:
+                config_ = config()
+                if username == config_['username'] and password == config_['password']:
                     session['logged_in'] = True
                     flash('Logged in successfully!', 'success')
                     session['captcha_text'] = None
@@ -125,7 +123,7 @@ def login():
                     flash('Invalid username or password. Please try again.', 'danger')
             else:
                 flash('Invalid captcha. Please try again.', 'danger')
-        session['captcha_text'] = None
+        
         return render_template('login.html')
     else:
         return redirect(url_for('index'))
