@@ -125,7 +125,7 @@ def login():
                     flash('Invalid username or password. Please try again.', 'danger')
             else:
                 flash('Invalid captcha. Please try again.', 'danger')
-        session['captcha_text'] = None
+        # session['captcha_text'] = None
         return render_template('login.html')
     else:
         return redirect(url_for('index'))
