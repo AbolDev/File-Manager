@@ -266,4 +266,6 @@ def rename_item():
     return redirect(url_for('file_manager', current_path=current_path))
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=80, debug=True)
+    config_ = config()
+    port = config_['port']
+    app.run(host="0.0.0.0", port=port, debug=True)
