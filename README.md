@@ -29,7 +29,7 @@ To run this project locally, follow these steps:
 
 5. Start the web application:
    ```bash
-   python app.py
+   bash start-app.sh
    ```
 
 6. Open your web browser and navigate to `http://server_ip:8000`.
