@@ -4,6 +4,9 @@
 
 To run this project locally, follow these steps:
 
+sudo apt-get install git
+sudo apt install screen
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/AbolDev/File-Manager.git
