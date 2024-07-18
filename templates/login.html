@@ -6,7 +6,20 @@
     <title>Login</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        .alert-dismissible {
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .alert-dismissible .close {
+            margin-left: auto;
+            padding: 0.75rem 1rem;
+            color: inherit;
+        }
+
         .captcha-container {
             display: flex;
             align-items: center;
@@ -34,6 +47,29 @@
         .captcha-input {
             flex: 0 0 150px;
         }
+        
+        .footer {
+            text-align: center;
+            padding: 5px 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            position: fixed;
+            margin-top: 20px;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 13px;
+            color: #666;
+        }
+
+        .footer a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -46,7 +82,12 @@
                         {% with messages = get_flashed_messages(with_categories=true) %}
                             {% if messages %}
                                 {% for category, message in messages %}
-                                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
                                 {% endfor %}
                             {% endif %}
                         {% endwith %}
@@ -55,10 +96,21 @@
                                 <label for="username">Username</label>
                                 <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
                             </div>
-                            <div class="form-group">
+                            <!-- <div class="form-group">
                                 <label for="password">Password</label>
                                 <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
-                            </div>
+                            </div> -->
+                            <div class="form-group">
+                                <label for="password">Password</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                                    <div class="input-group-append">
+                                        <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>                            
                             <div class="form-group">
                                 <label for="captcha">Enter the code above</label>
                                 <div class="captcha-container">
@@ -76,7 +128,20 @@
             </div>
         </div>
     </div>
+    
+    <div class="footer">
+        <div id="version-info">
+            <span>Version {{ version }}</span>
+            <span> | </span>
+            <a href="https://github.com/AbolDev/File-Manager" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github"></i> GitHub
+            </a>
+        </div>
+    </div>
 
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var changeCaptchaBtn = document.getElementById('change-captcha');
@@ -86,6 +151,19 @@
                 event.preventDefault();
                 captchaImg.src = "{{ url_for('captcha_gen') }}?" + new Date().getTime();
                 document.getElementById('captcha').value = '';
+            });
+
+            setTimeout(function() {
+                $(".alert").alert('close');
+            }, 7000);
+
+            var togglePassword = document.getElementById('togglePassword');
+            var passwordInput = document.getElementById('password');
+            
+            togglePassword.addEventListener('click', function () {
+                var type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.querySelector('i').classList.toggle('fa-eye-slash');
             });
         });
     </script>

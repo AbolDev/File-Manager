@@ -5,17 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Manager</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        .alert-dismissible {
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
         .alert-dismissible .close {
-            position: absolute;
-            top: 0;
-            right: 0;
-            padding: 1.25rem 1rem;
+            margin-left: auto;
+            padding: 0.75rem 1rem;
             color: inherit;
         }
+
         .sort {
             cursor: pointer;
         }
+
         .sort .arrow {
             display: inline-block;
             vertical-align: middle;
@@ -23,6 +30,7 @@
             position: relative;
             top: -1px;
         }
+
         .sort.asc .arrow:after {
             content: "";
             border-left: 5px solid transparent;
@@ -31,6 +39,7 @@
             display: inline-block;
             vertical-align: middle;
         }
+
         .sort.desc .arrow:after {
             content: "";
             border-left: 5px solid transparent;
@@ -38,6 +47,61 @@
             border-top: 5px solid black;
             display: inline-block;
             vertical-align: middle;
+        }
+
+        .more-btn {
+            background-color: #6c757d;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .dropdown-menu {
+            min-width: 8rem;
+            background-color: #6c757d;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+        }
+
+        .dropdown-item {
+            color: #fff;
+        }
+
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            background-color: #5a6268;
+        }
+
+        .dropdown-menu {
+            min-width: unset;
+            background-color: #6c757d;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            width: auto;
+            right: 0;
+            left: auto;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 5px 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            position: fixed;
+            margin-top: 20px;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 13px;
+            color: #666;
+        }
+
+        .footer a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -76,6 +140,7 @@
                                     <th class="sort" data-sort="type">Type <span class="arrow"></span></th>
                                     <th class="sort" data-sort="size">Size <span class="arrow"></span></th>
                                     <th class="sort" data-sort="mod_time">Last Modified <span class="arrow"></span></th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -91,9 +156,26 @@
                                         <td>{{ file.type }}</td>
                                         <td data-size="{{ file.size }}">{{ formatSize(file.size) }}</td>
                                         <td>{{ file.mod_time }}</td>
+                                        <td>
+                                            <div class="dropdown">
+                                                <button class="btn btn-secondary dropdown-toggle more-btn" type="button" id="dropdownMenuButton_{{ loop.index }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                    &#8286;
+                                                </button>
+                                                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton_{{ loop.index }}">
+                                                    {% if file.type == 'Directory' %}
+                                                        <button class="dropdown-item delete-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Delete</button>
+                                                        <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="Directory">Rename</button>
+                                                    {% else %}
+                                                        <button class="dropdown-item delete-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Delete</button>
+                                                        <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="File">Rename</button>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        
                                     </tr>
                                 {% endfor %}
-                            </tbody>
+                            </tbody>                                                     
                         </table>
 
                         <a href="{{ url_for('file_manager', current_path=current_path) }}" class="btn btn-primary">Manage Files</a>
@@ -104,6 +186,17 @@
             </div>
         </div>
     </div>
+
+    <div class="footer">
+        <div id="version-info">
+            <span>Version {{ version }}</span>
+            <span> | </span>
+            <a href="https://github.com/AbolDev/File-Manager" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github"></i> GitHub
+            </a>
+        </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
@@ -176,6 +269,77 @@
         function formatSize(size) {
             return parseSize(size);
         }
+
+    $('#file-table').on('click', '.delete-file-btn', function() {
+        var filepath = $(this).data('filepath');
+        if (confirm('Are you sure you want to delete the file: ' + filepath + '?')) {
+            $.ajax({
+                url: '/delete_file/' + encodeURIComponent(filepath),
+                type: 'DELETE',
+                success: function(response) {
+                    location.reload();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error deleting file: ' + error);
+                }
+            });
+        }
+    });
+
+    $('#file-table').on('click', '.delete-dir-btn', function() {
+        var dirpath = $(this).data('dirpath');
+        if (confirm('Are you sure you want to delete the directory: ' + dirpath + '?')) {
+            $.ajax({
+                url: '/delete_directory/' + encodeURIComponent(dirpath),
+                type: 'DELETE',
+                success: function(response) {
+                    location.reload();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error deleting directory: ' + error);
+                }
+            });
+        }
+    });
+
+    $('#file-table').on('click', '.rename-btn', function() {
+        var itemName = $(this).data('name');
+        var itemType = $(this).data('type');
+        var newName = prompt('Enter new name for ' + itemType.toLowerCase() + ':', itemName);
+        
+        if (newName && newName !== itemName) {
+            var url = '/rename';
+            var currentPath = "{{ current_path }}";
+            
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: {
+                    current_path: currentPath,
+                    old_name: itemName,
+                    new_name: newName
+                },
+                success: function(response) {
+                    location.reload();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error renaming ' + itemType.toLowerCase() + ': ' + error);
+                }
+            });
+        }
+    });
+
+    $('.dropdown-toggle').click(function(e) {
+        e.stopPropagation();
+        var $dropdownMenu = $(this).next('.dropdown-menu');
+        $('.dropdown-menu').not($dropdownMenu).hide();
+        $dropdownMenu.toggle();
+    });
+
+    $(document).click(function() {
+        $('.dropdown-menu').hide();
+    });
+
     });
     </script>
 </body>

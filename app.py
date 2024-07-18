@@ -1,16 +1,23 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
 from werkzeug.utils import secure_filename
 from captcha.image import ImageCaptcha
+from datetime import timedelta
 from flask_cors import CORS
 import os
 import json
+import shutil
 import random
 import datetime
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = 'supersecretkey'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+# ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+VERSION = "0.1.1"
+
+def allowed_file(filename):
+    # return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return True
 
 def config():
     with open("config.json", "rb") as file:
@@ -18,10 +25,6 @@ def config():
 
         config = json.loads(file_content)
         return config
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-    # return '.' in filename
 
 def get_parent_directory(path):
     if '/' in path:
@@ -92,19 +95,28 @@ def index(path=''):
         return redirect(url_for('index', path=parent_path))
 
     files = get_file_details(full_path)
-    print(path)
-    return render_template('index.html', files=files, current_path=path)
+    return render_template('index.html', files=files, current_path=path, version=VERSION)
+
+def random_number_without_1_and_7():
+    allowed_digits = [0, 2, 3, 4, 5, 6, 8, 9]
+    number = ""
+    for _ in range(5):
+        digit = random.choice(allowed_digits)
+        number += str(digit)
+    
+    while number[0] == '0':
+        number = str(random.choice(allowed_digits[1:])) + number[1:]
+    
+    return number
 
 @app.route('/captcha', methods=['GET', 'POST'])
 def captcha_gen():
-    captcha_text = str(random.randint(10000, 99999))
+    # captcha_text = str(random.randint(10000, 99999))
+    captcha_text = random_number_without_1_and_7()
     captcha = ImageCaptcha()
     captcha_image = captcha.generate(captcha_text)
     img_bytes = captcha_image.getvalue()
     session['captcha_text'] = captcha_text
-
-    print(captcha_text)
-
     return img_bytes
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -115,18 +127,22 @@ def login():
             password = request.form['password']
             captcha = request.form['captcha']
             if str(captcha) == session.get('captcha_text'):
-                config = config()
-                if username == config['username'] and password == config['password']:
+                config_ = config()
+                if username == config_['username'] and password == config_['password']:
                     session['logged_in'] = True
                     flash('Logged in successfully!', 'success')
+
+                    # Set session['logged_in'] to permanent
+                    session.permanent = True
+                    app.permanent_session_lifetime = timedelta(days=365*100)
+
                     session['captcha_text'] = None
                     return redirect(url_for('index'))
                 else:
                     flash('Invalid username or password. Please try again.', 'danger')
             else:
                 flash('Invalid captcha. Please try again.', 'danger')
-        # session['captcha_text'] = None
-        return render_template('login.html')
+        return render_template('login.html', version=VERSION)
     else:
         return redirect(url_for('index'))
 
@@ -162,7 +178,7 @@ def file_manager(current_path=''):
         return redirect(url_for('file_manager', current_path=parent_path))
 
     files = get_file_details(full_path)
-    return render_template('file_manager.html', files=files, current_path=current_path)
+    return render_template('file_manager.html', files=files, current_path=current_path, version=VERSION)
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
@@ -192,6 +208,62 @@ def create_directory_route():
 
     return redirect(url_for('file_manager', current_path=current_path))
 
+@app.route('/delete_directory/<path:dirpath>', methods=['DELETE'])
+def delete_directory_route(dirpath):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    full_path = os.path.join('/', dirpath.replace('/', os.sep))
+
+    try:
+        if os.path.isdir(full_path):
+            shutil.rmtree(full_path)
+            flash(f'Directory "{dirpath}" deleted successfully!', 'success')
+        else:
+            flash(f'Directory "{dirpath}" not found.', 'danger')
+    except Exception as e:
+        flash(f'Error deleting directory: {str(e)}', 'danger')
+
+    return '', 204
+
+@app.route('/delete_file/<path:filepath>', methods=['DELETE'])
+def delete_file(filepath):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    full_path = os.path.join('/', filepath.replace('/', os.sep))
+
+    try:
+        if os.path.isfile(full_path):
+            os.remove(full_path)
+            flash(f'File "{filepath}" deleted successfully!', 'success')
+        else:
+            flash(f'File "{filepath}" not found.', 'danger')
+    except Exception as e:
+        flash(f'Error deleting file: {str(e)}', 'danger')
+
+    return '', 204
+
+@app.route('/rename', methods=['POST'])
+def rename_item():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    current_path = request.form.get('current_path', '')
+    old_name = request.form.get('old_name', '')
+    new_name = request.form.get('new_name', '')
+
+    if current_path and old_name and new_name:
+        full_path_old = os.path.join('/', current_path.replace('/', os.sep), old_name)
+        full_path_new = os.path.join('/', current_path.replace('/', os.sep), new_name)
+
+        try:
+            os.rename(full_path_old, full_path_new)
+            flash(f'Item "{old_name}" renamed to "{new_name}" successfully!', 'success')
+        except Exception as e:
+            flash(f'Error renaming item: {str(e)}', 'danger')
+
+    return redirect(url_for('file_manager', current_path=current_path))
+
 if __name__ == '__main__':
-    port = config()['port']
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=80, debug=True)
