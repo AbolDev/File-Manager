@@ -4,7 +4,8 @@
 
 To run this project locally, follow these steps:
 
-sudo apt-get install git
+sudo apt update
+sudo apt install git
 sudo apt install screen
 
 1. Clone the repository:
