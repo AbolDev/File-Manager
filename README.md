@@ -66,15 +66,3 @@ For the best experience, it is recommended to use one of the following operating
 ## License
 
 This project is licensed under the MIT License.
-
-
-### Explanation
-
-1. **Introduction**: Brief introduction about what the File-Manager project is.
-2. **Features**: Detailed list of features the application provides.
-3. **Installation**: Instructions for installing the project with a single command.
-4. **Configuration**: Details about the configuration process during installation.
-5. **Usage**: Instructions on how to access the application after installation.
-6. **Recommended OS**: List of recommended operating systems for the best experience.
-7. **Notes**: Additional recommendations and notes for users.
-8. **License**: License information for the project.
