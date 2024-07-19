@@ -23,19 +23,19 @@ echo "The OS release is: $release"
 install_dependencies() {
     case "${release}" in
     ubuntu | debian)
-        apt-get update && apt-get install -y git screen python3-venv curl
+        apt-get update && apt-get install -y git screen python3-venv curl jq
         ;;
     centos | almalinux | rocky | oracle)
-        yum -y update && yum install -y git screen python3-venv curl
+        yum -y update && yum install -y git screen python3-venv curl jq
         ;;
     fedora)
-        dnf -y update && dnf install -y git screen python3-venv curl
+        dnf -y update && dnf install -y git screen python3-venv curl jq
         ;;
     arch | manjaro)
-        pacman -Syu && pacman -Syu --noconfirm git screen python-virtualenv curl
+        pacman -Syu && pacman -Syu --noconfirm git screen python-virtualenv curl jq
         ;;
     opensuse-tumbleweed)
-        zypper refresh && zypper install -y git screen python3-virtualenv curl
+        zypper refresh && zypper install -y git screen python3-virtualenv curl jq
         ;;
     *)
         echo -e "${red}Your operating system is not supported by this script.${plain}\n"
@@ -50,6 +50,37 @@ install_dependencies() {
         exit 1
         ;;
     esac
+}
+
+get_user_input() {
+    local default_username=$(jq -r '.username' config.json)
+    local default_password=$(jq -r '.password' config.json)
+    local default_port=$(jq -r '.port' config.json)
+
+    read -p "Enter username [default: ${default_username}]: " username
+    username=${username:-$default_username}
+
+    read -p "Enter password [default: ${default_password}]: " password
+    password=${password:-$default_password}
+
+    while true; do
+        read -p "Enter port [default: ${default_port}]: " port
+        port=${port:-$default_port}
+        
+        if [[ ! $port =~ ^[0-9]+$ ]]; then
+            echo -e "${red}Invalid port number. Please enter a valid number.${plain}"
+            continue
+        fi
+
+        if lsof -i:$port > /dev/null; then
+            echo -e "${red}Port ${port} is in use. Please enter another port.${plain}"
+        else
+            break
+        fi
+    done
+
+    jq --arg username "$username" --arg password "$password" --arg port "$port" \
+       '.username=$username | .password=$password | .port=$port' config.json > config.tmp && mv config.tmp config.json
 }
 
 install_file_manager() {
@@ -73,6 +104,10 @@ install_file_manager() {
     echo -e "${green}Installing dependencies...${plain}"
     pip install -r requirements.txt
 
+    # Get user input for config.json
+    echo -e "${green}Configuring File Manager...${plain}"
+    get_user_input
+
     # Start the web application
     echo -e "${green}Starting the web application...${plain}"
     sed -i 's/\r$//' start-app.sh
@@ -82,7 +117,7 @@ install_file_manager() {
     server_ip=$(curl -s ifconfig.me)
 
     echo -e "${green}File Manager installation finished, it is up and running now...${plain}"
-    echo -e "Open your web browser and navigate to http://${server_ip}:8000 to access the application."
+    echo -e "Open your web browser and navigate to http://${server_ip}:${port} to access the application."
 }
 
 echo -e "${green}Running...${plain}"
