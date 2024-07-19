@@ -2,6 +2,8 @@
 
 ## Installation
 
+bash <(curl -Ls https://raw.githubusercontent.com/AbolDev/File-Manager/master/install.sh)
+
 To run this project locally, follow these steps:
 
 1. Install necessary packages:
