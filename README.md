@@ -1,54 +1,81 @@
-### File-Manager
+```markdown
+# File-Manager
+
+## Introduction
+
+File-Manager is a web application designed to help you manage your files easily through a web interface. 
+
+## Features
+
+- User-friendly interface
+- Secure login
+- Display all files in the system
+- Open folders and display their contents
+- Download files
+- Upload files (single and multiple)
+- Create folders
+- Rename files and folders
+- Delete files and folders
 
 ## Installation
 
+To install and run the File-Manager project, execute the following command:
+
+```bash
 bash <(curl -Ls https://raw.githubusercontent.com/AbolDev/File-Manager/master/install.sh)
+```
 
-To run this project locally, follow these steps:
+## Configuration
 
-1. Install necessary packages:
-   ```bash
-   sudo apt update
-   sudo apt install git
-   sudo apt install screen
-   sudo apt install python3-venv
-   ```
+During the installation, you will be prompted to set the following:
 
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/AbolDev/File-Manager.git
-   cd File-Manager
-   ```
+- **Username**: The username for logging into the application (default: `admin`).
+- **Password**: The password for logging into the application (default: `12345`).
+- **Port**: The port on which the application will run (default: `8000`).
 
-3. Set up a virtual environment:
-   ```bash
-   python3 -m venv myenv
-   source myenv/bin/activate
-   ```
+If you want to keep the default values, just press Enter when prompted.
 
-4. Install the required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Usage
 
-5. Start the web application:
-   ```bash
-   sed -i 's/\r$//' start-app.sh
-   bash start-app.sh
-   ```
+Once the installation is complete, the application will be running in a screen session. Open your web browser and navigate to:
 
-6. Open your web browser and navigate to `http://server_ip:8000`.
+```
+http://<server_ip>:<port>
+```
+
+Replace `<server_ip>` with your server's public IP address and `<port>` with the port you specified during installation.
+
+## Recommended OS
+
+For the best experience, it is recommended to use one of the following operating systems:
+
+- Ubuntu 20.04+
+- Debian 11+
+- CentOS 8+
+- Fedora 36+
+- Arch Linux
+- Manjaro
+- AlmaLinux 9+
+- Rocky Linux 9+
+- Oracle Linux 8+
+
+## Notes
+
+- Ensure the specified port is not in use.
+- For security reasons, it is recommended to change the default username and password.
+
+## License
+
+This project is licensed under the MIT License.
+```
 
 ### Explanation
 
-1. **Install necessary packages:** Update the package list and install `git`, `screen`, and `python3-venv` to set up the environment.
-
-2. **Clone the repository:** Clone the File-Manager repository from GitHub and navigate into the project directory.
-
-3. **Set up a virtual environment:** Create and activate a Python virtual environment named `myenv` to isolate project dependencies.
-
-4. **Install dependencies:** Use pip to install all necessary Python packages listed in the `requirements.txt` file.
-
-5. **Start the web application:** Prepare the `start-app.sh` script to run without carriage return characters and execute it to start the File-Manager web application locally.
-
-6. **Access the application:** Open a web browser and go to `http://server_ip:8000` to use the File-Manager application.
+1. **Introduction**: Brief introduction about what the File-Manager project is.
+2. **Features**: Detailed list of features the application provides.
+3. **Installation**: Instructions for installing the project with a single command.
+4. **Configuration**: Details about the configuration process during installation.
+5. **Usage**: Instructions on how to access the application after installation.
+6. **Recommended OS**: List of recommended operating systems for the best experience.
+7. **Notes**: Additional recommendations and notes for users.
+8. **License**: License information for the project.
