@@ -23,19 +23,19 @@ echo "The OS release is: $release"
 install_dependencies() {
     case "${release}" in
     ubuntu | debian)
-        apt-get update && apt-get install -y git screen python3-venv
+        apt-get update && apt-get install -y git screen python3-venv curl
         ;;
     centos | almalinux | rocky | oracle)
-        yum -y update && yum install -y git screen python3-venv
+        yum -y update && yum install -y git screen python3-venv curl
         ;;
     fedora)
-        dnf -y update && dnf install -y git screen python3-venv
+        dnf -y update && dnf install -y git screen python3-venv curl
         ;;
     arch | manjaro)
-        pacman -Syu && pacman -Syu --noconfirm git screen python-virtualenv
+        pacman -Syu && pacman -Syu --noconfirm git screen python-virtualenv curl
         ;;
     opensuse-tumbleweed)
-        zypper refresh && zypper install -y git screen python3-virtualenv
+        zypper refresh && zypper install -y git screen python3-virtualenv curl
         ;;
     *)
         echo -e "${red}Your operating system is not supported by this script.${plain}\n"
@@ -78,8 +78,11 @@ install_file_manager() {
     sed -i 's/\r$//' start-app.sh
     bash start-app.sh
 
+    # Get public IP address
+    server_ip=$(curl -s ifconfig.me)
+
     echo -e "${green}File Manager installation finished, it is up and running now...${plain}"
-    echo -e "Open your web browser and navigate to http://server_ip:8000 to access the application."
+    echo -e "Open your web browser and navigate to http://${server_ip}:8000 to access the application."
 }
 
 echo -e "${green}Running...${plain}"
