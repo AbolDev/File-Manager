@@ -151,23 +151,23 @@ EOF
 create_file_manager_command() {
     echo -e "${green}Creating 'file-manager' command...${plain}"
 
+    # Copy the file-manager.sh script to /usr/local/bin
+    cp "$cur_dir/file-manager.sh" /usr/local/bin/file-manager.sh
+    chmod +x /usr/local/bin/file-manager.sh
+
     # Create a command script
     cat <<EOF > /usr/local/bin/file-manager
 #!/bin/bash
-
-# Open the File Manager settings (you can modify this based on the specific settings management)
-cd /usr/local/File-Manager
-source myenv/bin/activate
-python manage.py settings
+bash /usr/local/bin/file-manager.sh
 EOF
 
     # Make the script executable
     chmod +x /usr/local/bin/file-manager
 
-    echo -e "${green}Command 'file-manager' created successfully. You can now run 'file-manager' to access the settings.${plain}"
+    echo -e "${green}Command 'file-manager' created successfully. You can now run 'file-manager' to access the management menu.${plain}"
 }
 
-echo -e "${green}Running...${plain}"
+echo -e "${green}Running installation...${plain}"
 install_dependencies
 install_file_manager
 create_systemd_service
