@@ -151,8 +151,8 @@ EOF
 create_file_manager_command() {
     echo -e "${green}Creating 'file-manager' command...${plain}"
 
-    # Create the file-manager.sh script directly in /usr/local/bin/
-    cat <<EOF > /usr/local/bin/file-manager.sh
+    # Create the file-manager script directly in /usr/local/bin/
+    cat <<EOF > /usr/local/bin/file-manager
 #!/bin/bash
 
 config_file="/usr/local/File-Manager/config.json"
