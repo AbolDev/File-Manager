@@ -185,7 +185,7 @@ while true; do
     echo "3- Restart File Manager"
     echo "4- Change Username"
     echo "5- Change Password"
-    echo "6- Change Port"
+    # echo "6- Change Port"
     echo "0- Exit"
 
     read -p "Choose an option: " option
@@ -221,31 +221,31 @@ while true; do
             jq --arg new_password "\$new_password" '.password=\$new_password' \$config_file > config.tmp && mv config.tmp \$config_file
             echo -e "\e[32mPassword changed successfully.\e[0m"
             ;;
-        6)
-            while true; do
-                read -p "Enter new port: " new_port
-                if [[ ! \$new_port =~ ^[0-9]+$ ]]; then
-                    echo -e "\e[31mInvalid port number. Please enter a valid number.\e[0m"
-                    continue
-                fi
-                if lsof -i:\$new_port > /dev/null; then
-                    echo -e "\e[31mPort \$new_port is in use. Please enter another port.\e[0m"
-                else
-                    # Stop the current running app
-                    echo -e "\e[32mStopping File Manager...\e[0m"
-                    systemctl stop file-manager.service
+        # 6)
+        #     while true; do
+        #         read -p "Enter new port: " new_port
+        #         if [[ ! \$new_port =~ ^[0-9]+$ ]]; then
+        #             echo -e "\e[31mInvalid port number. Please enter a valid number.\e[0m"
+        #             continue
+        #         fi
+        #         if lsof -i:\$new_port > /dev/null; then
+        #             echo -e "\e[31mPort \$new_port is in use. Please enter another port.\e[0m"
+        #         else
+        #             # Stop the current running app
+        #             echo -e "\e[32mStopping File Manager...\e[0m"
+        #             systemctl stop file-manager.service
 
-                    # Update port in config file
-                    jq --arg new_port "\$new_port" '.port=\$new_port' \$config_file > config.tmp && mv config.tmp \$config_file
+        #             # Update port in config file
+        #             jq --arg new_port "\$new_port" '.port=\$new_port' \$config_file > config.tmp && mv config.tmp \$config_file
 
-                    # Restart the app
-                    echo -e "\e[32mStarting File Manager...\e[0m"
-                    systemctl start file-manager.service
-                    echo -e "\e[32mPort changed and File Manager restarted successfully.\e[0m"
-                    break
-                fi
-            done
-            ;;
+        #             # Restart the app
+        #             echo -e "\e[32mStarting File Manager...\e[0m"
+        #             systemctl start file-manager.service
+        #             echo -e "\e[32mPort changed and File Manager restarted successfully.\e[0m"
+        #             break
+        #         fi
+        #     done
+        #     ;;
         0)
             echo "Exiting..."
             exit 0
