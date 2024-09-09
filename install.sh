@@ -151,7 +151,7 @@ EOF
 create_file_manager_command() {
     echo -e "${green}Creating 'file-manager' command...${plain}"
 
-    # Create the file-manager.sh script directly in /usr/local/bin/
+    # Create the file-manager script directly in /usr/local/bin/
     cat <<EOF > /usr/local/bin/file-manager
 #!/bin/bash
 
@@ -210,13 +210,11 @@ while true; do
         4)
             read -p "Enter new username: " new_username
             jq --arg new_username "\$new_username" '.username=\$new_username' \$config_file > config.tmp && mv config.tmp \$config_file
-            systemctl restart file-manager.service
             echo -e "\e[32mUsername changed successfully.\e[0m"
             ;;
         5)
             read -p "Enter new password: " new_password
             jq --arg new_password "\$new_password" '.password=\$new_password' \$config_file > config.tmp && mv config.tmp \$config_file
-            systemctl restart file-manager.service
             echo -e "\e[32mPassword changed successfully.\e[0m"
             ;;
         6)
