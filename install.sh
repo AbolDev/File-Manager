@@ -120,6 +120,55 @@ install_file_manager() {
     echo -e "Open your web browser and navigate to http://${server_ip}:${port} to access the application."
 }
 
+create_systemd_service() {
+    echo -e "${green}Creating systemd service for File Manager...${plain}"
+    
+    # Create the systemd service file
+    cat <<EOF > /etc/systemd/system/file-manager.service
+[Unit]
+Description=File Manager Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/usr/local/File-Manager
+ExecStart=/usr/local/File-Manager/myenv/bin/python3 /usr/local/File-Manager/app.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Reload systemd, enable and start the service
+    systemctl daemon-reload
+    systemctl enable file-manager.service
+    systemctl start file-manager.service
+
+    echo -e "${green}File Manager service created and enabled to start on boot.${plain}"
+}
+
+create_file_manager_command() {
+    echo -e "${green}Creating 'file-manager' command...${plain}"
+
+    # Create a command script
+    cat <<EOF > /usr/local/bin/file-manager
+#!/bin/bash
+
+# Open the File Manager settings (you can modify this based on the specific settings management)
+cd /usr/local/File-Manager
+source myenv/bin/activate
+python manage.py settings
+EOF
+
+    # Make the script executable
+    chmod +x /usr/local/bin/file-manager
+
+    echo -e "${green}Command 'file-manager' created successfully. You can now run 'file-manager' to access the settings.${plain}"
+}
+
 echo -e "${green}Running...${plain}"
 install_dependencies
 install_file_manager
+create_systemd_service
+create_file_manager_command
