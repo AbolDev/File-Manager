@@ -151,7 +151,7 @@ EOF
 create_file_manager_command() {
     echo -e "${green}Creating 'file-manager' command...${plain}"
 
-    # Create the file-manager script directly in /usr/local/bin/
+    # Create the file-manager.sh script directly in /usr/local/bin/
     cat <<EOF > /usr/local/bin/file-manager
 #!/bin/bash
 
@@ -230,12 +230,14 @@ while true; do
                     echo -e "\e[31mPort \$new_port is in use. Please enter another port.\e[0m"
                 else
                     # Stop the current running app
+                    echo -e "\e[32mStopping File Manager...\e[0m"
                     systemctl stop file-manager.service
-                    echo -e "\e[32mFile Manager stopped.\e[0m"
-                    
+
+                    # Update port in config file
                     jq --arg new_port "\$new_port" '.port=\$new_port' \$config_file > config.tmp && mv config.tmp \$config_file
-                    
+
                     # Restart the app
+                    echo -e "\e[32mStarting File Manager...\e[0m"
                     systemctl start file-manager.service
                     echo -e "\e[32mPort changed and File Manager restarted successfully.\e[0m"
                     break
