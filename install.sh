@@ -151,23 +151,100 @@ EOF
 create_file_manager_command() {
     echo -e "${green}Creating 'file-manager' command...${plain}"
 
-    # Copy the file-manager.sh script to /usr/local/bin
-    cp "$cur_dir/file-manager.sh" /usr/local/bin/file-manager.sh
-    chmod +x /usr/local/bin/file-manager.sh
-
-    # Create a command script
-    cat <<EOF > /usr/local/bin/file-manager
+    # Create the file-manager.sh script directly in /usr/local/bin/
+    cat <<EOF > /usr/local/bin/file-manager.sh
 #!/bin/bash
-bash /usr/local/bin/file-manager.sh
+
+config_file="/usr/local/File-Manager/config.json"
+status=\$(systemctl is-active file-manager.service)
+
+username=\$(jq -r '.username' \$config_file)
+password=\$(jq -r '.password' \$config_file)
+port=\$(jq -r '.port' \$config_file)
+
+echo "File Manager Status: \$status"
+echo "Username: \$username"
+echo "Password: \$password"
+echo "Port: \$port"
+echo ""
+echo "Options:"
+echo "1- Start File Manager"
+echo "2- Stop File Manager"
+echo "3- Restart File Manager"
+echo "4- Change Username"
+echo "5- Change Password"
+echo "6- Change Port"
+echo "7- Exit"
+
+read -p "Choose an option: " option
+
+case \$option in
+    1)
+        if [ "\$status" != "active" ]; then
+            systemctl start file-manager.service
+            echo -e "${green}File Manager started successfully.${plain}"
+        else
+            echo -e "${yellow}File Manager is already running.${plain}"
+        fi
+        ;;
+    2)
+        if [ "\$status" == "active" ]; then
+            systemctl stop file-manager.service
+            echo -e "${green}File Manager stopped successfully.${plain}"
+        else
+            echo -e "${yellow}File Manager is already stopped.${plain}"
+        fi
+        ;;
+    3)
+        systemctl restart file-manager.service
+        echo -e "${green}File Manager restarted successfully.${plain}"
+        ;;
+    4)
+        read -p "Enter new username: " new_username
+        jq --arg new_username "\$new_username" '.username=\$new_username' \$config_file > config.tmp && mv config.tmp \$config_file
+        systemctl restart file-manager.service
+        echo -e "${green}Username changed successfully.${plain}"
+        ;;
+    5)
+        read -p "Enter new password: " new_password
+        jq --arg new_password "\$new_password" '.password=\$new_password' \$config_file > config.tmp && mv config.tmp \$config_file
+        systemctl restart file-manager.service
+        echo -e "${green}Password changed successfully.${plain}"
+        ;;
+    6)
+        while true; do
+            read -p "Enter new port: " new_port
+            if [[ ! \$new_port =~ ^[0-9]+$ ]]; then
+                echo -e "${red}Invalid port number. Please enter a valid number.${plain}"
+                continue
+            fi
+            if lsof -i:\$new_port > /dev/null; then
+                echo -e "${red}Port \$new_port is in use. Please enter another port.${plain}"
+            else
+                jq --arg new_port "\$new_port" '.port=\$new_port' \$config_file > config.tmp && mv config.tmp \$config_file
+                systemctl restart file-manager.service
+                echo -e "${green}Port changed successfully.${plain}"
+                break
+            fi
+        done
+        ;;
+    7)
+        echo "Exiting..."
+        exit 0
+        ;;
+    *)
+        echo "Invalid option. Exiting..."
+        ;;
+esac
 EOF
 
-    # Make the script executable
-    chmod +x /usr/local/bin/file-manager
+    # Add executable permissions to the script
+    chmod +x /usr/local/bin/file-manager.sh
 
     echo -e "${green}Command 'file-manager' created successfully. You can now run 'file-manager' to access the management menu.${plain}"
 }
 
-echo -e "${green}Running installation...${plain}"
+echo -e "${green}Running...${plain}"
 install_dependencies
 install_file_manager
 create_systemd_service
