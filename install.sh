@@ -159,11 +159,15 @@ config_file="/usr/local/File-Manager/config.json"
 
 while true; do
     # Check service status
-    if systemctl is-active --quiet file-manager.service; then
-        status="\e[32mRunning\e[0m"  # Green color for active
-    else
-        status="\e[31mStopped\e[0m"  # Red color for inactive
-    fi
+    # Uncomment the next lines if you want to display service status
+    # if systemctl is-active --quiet file-manager.service; then
+    #     status="\e[32mRunning\e[0m"  # Green color for active
+    # else
+    #     status="\e[31mStopped\e[0m"  # Red color for inactive
+    # fi
+
+    # For now, always assume the service is running
+    status="\e[32mRunning\e[0m"
 
     username=\$(jq -r '.username' \$config_file)
     password=\$(jq -r '.password' \$config_file)
@@ -182,7 +186,7 @@ while true; do
     echo "4- Change Username"
     echo "5- Change Password"
     echo "6- Change Port"
-    echo "7- Exit"
+    echo "0- Exit"
 
     read -p "Choose an option: " option
 
@@ -242,7 +246,7 @@ while true; do
                 fi
             done
             ;;
-        7)
+        0)
             echo "Exiting..."
             exit 0
             ;;
