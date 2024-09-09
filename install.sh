@@ -156,86 +156,101 @@ create_file_manager_command() {
 #!/bin/bash
 
 config_file="/usr/local/File-Manager/config.json"
-status=\$(systemctl is-active file-manager.service)
 
-username=\$(jq -r '.username' \$config_file)
-password=\$(jq -r '.password' \$config_file)
-port=\$(jq -r '.port' \$config_file)
+while true; do
+    # Check service status
+    if systemctl is-active --quiet file-manager.service; then
+        status="\e[32mRunning\e[0m"  # Green color for active
+    else
+        status="\e[31mStopped\e[0m"  # Red color for inactive
+    fi
 
-echo "File Manager Status: \$status"
-echo "Username: \$username"
-echo "Password: \$password"
-echo "Port: \$port"
-echo ""
-echo "Options:"
-echo "1- Start File Manager"
-echo "2- Stop File Manager"
-echo "3- Restart File Manager"
-echo "4- Change Username"
-echo "5- Change Password"
-echo "6- Change Port"
-echo "7- Exit"
+    username=\$(jq -r '.username' \$config_file)
+    password=\$(jq -r '.password' \$config_file)
+    port=\$(jq -r '.port' \$config_file)
 
-read -p "Choose an option: " option
+    echo ""
+    echo -e "File Manager Status: \$status"
+    echo "Username: \$username"
+    echo "Password: \$password"
+    echo "Port: \$port"
+    echo ""
+    echo "Options:"
+    echo "1- Start File Manager"
+    echo "2- Stop File Manager"
+    echo "3- Restart File Manager"
+    echo "4- Change Username"
+    echo "5- Change Password"
+    echo "6- Change Port"
+    echo "7- Exit"
 
-case \$option in
-    1)
-        if [ "\$status" != "active" ]; then
-            systemctl start file-manager.service
-            echo -e "${green}File Manager started successfully.${plain}"
-        else
-            echo -e "${yellow}File Manager is already running.${plain}"
-        fi
-        ;;
-    2)
-        if [ "\$status" == "active" ]; then
-            systemctl stop file-manager.service
-            echo -e "${green}File Manager stopped successfully.${plain}"
-        else
-            echo -e "${yellow}File Manager is already stopped.${plain}"
-        fi
-        ;;
-    3)
-        systemctl restart file-manager.service
-        echo -e "${green}File Manager restarted successfully.${plain}"
-        ;;
-    4)
-        read -p "Enter new username: " new_username
-        jq --arg new_username "\$new_username" '.username=\$new_username' \$config_file > config.tmp && mv config.tmp \$config_file
-        systemctl restart file-manager.service
-        echo -e "${green}Username changed successfully.${plain}"
-        ;;
-    5)
-        read -p "Enter new password: " new_password
-        jq --arg new_password "\$new_password" '.password=\$new_password' \$config_file > config.tmp && mv config.tmp \$config_file
-        systemctl restart file-manager.service
-        echo -e "${green}Password changed successfully.${plain}"
-        ;;
-    6)
-        while true; do
-            read -p "Enter new port: " new_port
-            if [[ ! \$new_port =~ ^[0-9]+$ ]]; then
-                echo -e "${red}Invalid port number. Please enter a valid number.${plain}"
-                continue
-            fi
-            if lsof -i:\$new_port > /dev/null; then
-                echo -e "${red}Port \$new_port is in use. Please enter another port.${plain}"
+    read -p "Choose an option: " option
+
+    case \$option in
+        1)
+            if ! systemctl is-active --quiet file-manager.service; then
+                systemctl start file-manager.service
+                echo -e "\e[32mFile Manager started successfully.\e[0m"
             else
-                jq --arg new_port "\$new_port" '.port=\$new_port' \$config_file > config.tmp && mv config.tmp \$config_file
-                systemctl restart file-manager.service
-                echo -e "${green}Port changed successfully.${plain}"
-                break
+                echo -e "\e[33mFile Manager is already running.\e[0m"
             fi
-        done
-        ;;
-    7)
-        echo "Exiting..."
-        exit 0
-        ;;
-    *)
-        echo "Invalid option. Exiting..."
-        ;;
-esac
+            ;;
+        2)
+            if systemctl is-active --quiet file-manager.service; then
+                systemctl stop file-manager.service
+                echo -e "\e[32mFile Manager stopped successfully.\e[0m"
+            else
+                echo -e "\e[33mFile Manager is already stopped.\e[0m"
+            fi
+            ;;
+        3)
+            systemctl restart file-manager.service
+            echo -e "\e[32mFile Manager restarted successfully.\e[0m"
+            ;;
+        4)
+            read -p "Enter new username: " new_username
+            jq --arg new_username "\$new_username" '.username=\$new_username' \$config_file > config.tmp && mv config.tmp \$config_file
+            systemctl restart file-manager.service
+            echo -e "\e[32mUsername changed successfully.\e[0m"
+            ;;
+        5)
+            read -p "Enter new password: " new_password
+            jq --arg new_password "\$new_password" '.password=\$new_password' \$config_file > config.tmp && mv config.tmp \$config_file
+            systemctl restart file-manager.service
+            echo -e "\e[32mPassword changed successfully.\e[0m"
+            ;;
+        6)
+            while true; do
+                read -p "Enter new port: " new_port
+                if [[ ! \$new_port =~ ^[0-9]+$ ]]; then
+                    echo -e "\e[31mInvalid port number. Please enter a valid number.\e[0m"
+                    continue
+                fi
+                if lsof -i:\$new_port > /dev/null; then
+                    echo -e "\e[31mPort \$new_port is in use. Please enter another port.\e[0m"
+                else
+                    # Stop the current running app
+                    systemctl stop file-manager.service
+                    echo -e "\e[32mFile Manager stopped.\e[0m"
+                    
+                    jq --arg new_port "\$new_port" '.port=\$new_port' \$config_file > config.tmp && mv config.tmp \$config_file
+                    
+                    # Restart the app
+                    systemctl start file-manager.service
+                    echo -e "\e[32mPort changed and File Manager restarted successfully.\e[0m"
+                    break
+                fi
+            done
+            ;;
+        7)
+            echo "Exiting..."
+            exit 0
+            ;;
+        *)
+            echo "Invalid option. Please try again."
+            ;;
+    esac
+done
 EOF
 
     # Make the script executable
