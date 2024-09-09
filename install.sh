@@ -238,8 +238,8 @@ case \$option in
 esac
 EOF
 
-    # Add executable permissions to the script
-    chmod +x /usr/local/bin/file-manager.sh
+    # Make the script executable
+    chmod +x /usr/local/bin/file-manager
 
     echo -e "${green}Command 'file-manager' created successfully. You can now run 'file-manager' to access the management menu.${plain}"
 }
