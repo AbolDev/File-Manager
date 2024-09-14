@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
-from werkzeug.utils import secure_filename
+# from werkzeug.utils import secure_filename
 from captcha.image import ImageCaptcha
 from datetime import timedelta
 from flask_cors import CORS
@@ -13,14 +13,13 @@ import psutil
 import platform
 import patoolib
 import py7zr
-# from datetime import datetime
 # import GPUtil
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = 'supersecretkey'
 # ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 def allowed_file(filename):
     # return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -174,7 +173,9 @@ def file_manager(current_path=''):
             return redirect(request.url)
         
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+            # filename = secure_filename(file.filename)
+            filename = file.filename
+            
             file.save(os.path.join(full_path, filename))
             flash('File uploaded successfully!', 'success')
             return redirect(request.url)
@@ -332,30 +333,6 @@ def get_system_info():
     #         "temperature": gpu.temperature
     #     })
 
-    # if_addrs = psutil.net_if_addrs()
-    # net_info = {}
-    # for interface_name, interface_addresses in if_addrs.items():
-    #     addrs = []
-    #     for address in interface_addresses:
-    #         if str(address.family) == 'AddressFamily.AF_INET':
-    #             addrs.append({
-    #                 "ip_address": address.address,
-    #                 "netmask": address.netmask,
-    #                 "broadcast_ip": address.broadcast
-    #             })
-    #         elif str(address.family) == 'AddressFamily.AF_PACKET':
-    #             addrs.append({
-    #                 "mac_address": address.address,
-    #                 "netmask": address.netmask,
-    #                 "broadcast_mac": address.broadcast
-    #             })
-    #     net_info[interface_name] = addrs
-
-    # net_io = psutil.net_io_counters()
-    # old_value = psutil.net_io_counters()
-    # time.sleep(1)
-    # new_value = psutil.net_io_counters()
-
     data = {
         "system_information": {
             "system": uname.system,
@@ -383,15 +360,6 @@ def get_system_info():
         },
         "disk_information": disk_info,
         # "gpu_information": gpu_info,
-        # "network_information": {
-        #     "interfaces": net_info,
-        #     "io_stats": {
-        #         "total_bytes_sent": net_io.bytes_sent,
-        #         "total_bytes_received": net_io.bytes_recv,
-        #         "bytes_sent": new_value.bytes_sent - old_value.bytes_sent,
-        #         "bytes_received": new_value.bytes_recv - old_value.bytes_recv
-        #     }
-        # }
     }
 
     return data
@@ -433,15 +401,6 @@ def get_network_info():
     }
 
     return data
-
-# Get network info
-network_info = get_network_info()
-
-# Convert to JSON string with indentation for pretty printing
-network_info_json = json.dumps(network_info, indent=4)
-
-# Print the JSON string
-print(network_info_json)
 
 @app.route('/api/system-info', methods=['GET'])
 def system_info():
