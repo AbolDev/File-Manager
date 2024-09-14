@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System info</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/system_info.style.css') }}">
+</head>
+<body>
+    <div id="root" class="dashboard">
+        <div class="ant-row" style="margin-bottom: 20px;">
+            <div class="ant-col ant-col-sm-24 ant-col-md-24 card">
+                <div class="ant-card ant-card-bordered ant-card-hoverable">
+                    <div class="ant-card-body">
+                        <div class="progress-circle-container">
+                            <div class="progress-circle-wrapper">
+                                <div class="progress-circle">
+                                    <div class="ant-progress ant-progress-circle" style="width: 120px; height: 120px;">
+                                        <svg viewBox="0 0 100 100" class="ant-progress-circle">
+                                            <path d="M 50,50 m 0,47 a 47,47 0 1 1 0,-94 a 47,47 0 1 1 0,94" stroke="#f3f3f3" stroke-linecap="round" stroke-width="6" fill-opacity="0" class="ant-progress-circle-trail"></path>
+                                            <path id="cpu-path" d="M 50,50 m 0,47 a 47,47 0 1 1 0,-94 a 47,47 0 1 1 0,94" stroke="#096dd9" stroke-linecap="round" stroke-width="6" fill-opacity="0" class="ant-progress-circle-path" style="stroke-dasharray: 0, 295.31px; stroke-dashoffset: 0;"></path>
+                                        </svg>
+                                        <span id="cpu-text" class="ant-progress-text">0.00%</span>
+                                    </div>
+                                </div>
+                                <div class="progress-text"><span class="label">CPU:</span> <span id="cpu-cores">0</span> Core</div>
+                            </div>
+                            <div class="progress-circle-wrapper">
+                                <div class="progress-circle">
+                                    <div class="ant-progress ant-progress-circle" style="width: 120px; height: 120px;">
+                                        <svg viewBox="0 0 100 100" class="ant-progress-circle">
+                                            <path d="M 50,50 m 0,47 a 47,47 0 1 1 0,-94 a 47,47 0 1 1 0,94" stroke="#f3f3f3" stroke-linecap="round" stroke-width="6" fill-opacity="0" class="ant-progress-circle-trail"></path>
+                                            <path id="ram-path" d="M 50,50 m 0,47 a 47,47 0 1 1 0,-94 a 47,47 0 1 1 0,94" stroke="#096dd9" stroke-linecap="round" stroke-width="6" fill-opacity="0" class="ant-progress-circle-path" style="stroke-dasharray: 0, 295.31px; stroke-dashoffset: 0;"></path>
+                                        </svg>
+                                        <span id="ram-text" class="ant-progress-text">0.00%</span>
+                                    </div>
+                                </div>
+                                <div class="progress-text"><span class="label">RAM:</span> <span id="ram-used">0.00</span> / <span id="ram-total">0.00</span></div>
+                            </div>
+                            <div class="progress-circle-wrapper">
+                                <div class="progress-circle">
+                                    <div class="ant-progress ant-progress-circle" style="width: 120px; height: 120px;">
+                                        <svg viewBox="0 0 100 100" class="ant-progress-circle">
+                                            <path d="M 50,50 m 0,47 a 47,47 0 1 1 0,-94 a 47,47 0 1 1 0,94" stroke="#f3f3f3" stroke-linecap="round" stroke-width="6" fill-opacity="0" class="ant-progress-circle-trail"></path>
+                                            <path id="disk-path" d="M 50,50 m 0,47 a 47,47 0 1 1 0,-94 a 47,47 0 1 1 0,94" stroke="#096dd9" stroke-linecap="round" stroke-width="6" fill-opacity="0" class="ant-progress-circle-path" style="stroke-dasharray: 0, 295.31px; stroke-dashoffset: 0;"></path>
+                                        </svg>
+                                        <span id="disk-text" class="ant-progress-text">0.00%</span>
+                                    </div>
+                                </div>
+                                <div class="progress-text"><span class="label">Disk:</span> <span id="disk-used">0.00</span> / <span id="disk-total">0.00</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="ant-row" style="margin-bottom: 20px;">
+            <div class="ant-col ant-col-sm-24 ant-col-md-24 card">
+                <div class="ant-card ant-card-bordered ant-card-hoverable">
+                    <div class="ant-card-body">
+                        <div class="info">
+                            <div><span class="label">System:</span> <span id="system"></span></div>
+                            <div><span class="label">Node Name:</span> <span id="node-name"></span></div>
+                            <div><span class="label">Release:</span> <span id="release"></span></div>
+                            <div><span class="label">Version:</span> <span id="version"></span></div>
+                            <div><span class="label">Machine:</span> <span id="machine"></span></div>
+                            <div><span class="label">Processor:</span> <span id="processor"></span></div>
+                            <div><span class="label">Boot Time:</span> <span id="boot-time"></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Add this section below your existing content -->
+        <div class="ant-row" style="margin-bottom: 20px;">
+            <div class="ant-col ant-col-sm-24 ant-col-md-24 card">
+                <div class="ant-card ant-card-bordered ant-card-hoverable">
+                    <div class="ant-card-body">
+                        <div class="network-info-container">
+                            <!-- Box for Total Upload and Download -->
+                            <div class="info-group">
+                                <div class="info-box">
+                                    <p id="total-upload">Out: 0.00 GB</p>
+                                    <p id="total-download">In: 0.00 GB</p>
+                                </div>
+                            </div>
+                            <!-- Box for Current Upload Speed and Current Download Speed -->
+                            <div class="info-group">
+                                <div class="info-box">
+                                    <p id="current-upload">Up: 0.00 KB/s</p>
+                                    <p id="current-download">Down: 0.00 KB/s</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/system_info.script.js') }}"></script>
+</body>
+</html>

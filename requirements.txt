@@ -2,3 +2,5 @@ Flask
 flask-cors
 captcha
 Werkzeug
+patool
+py7zr

@@ -1,0 +1,148 @@
+/* General body styling */
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f7f7f7;
+    margin: 0;
+}
+
+/* Main dashboard container */
+.dashboard {
+    width: 80%;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+/* Styling for individual cards */
+.card {
+    margin-bottom: 20px;
+}
+
+.ant-card {
+    border-radius: 10px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.05);
+}
+
+.ant-card-body {
+    padding: 20px;
+}
+
+/* Ensure that the progress circle container matches the size and has proper box shadow */
+.progress-circle-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* Adds spacing between progress circles */
+    justify-content: center; /* Center align progress circle boxes */
+}
+
+/* Ensure that the progress circle does not overflow its container */
+.progress-circle-wrapper {
+    display: inline-block;
+    text-align: center;
+    width: 120px; /* Width of the progress circle */
+    height: 160px; /* Height to include text below the progress circle */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    margin: 20px; /* Adjust this value to increase or decrease spacing between boxes */
+}
+
+.progress-circle {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin-bottom: 10px; /* Space between progress circle and text */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    border-radius: 50%; /* Ensure progress circle is round */
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); /* Adjust shadow if needed */
+}
+
+/* Ensure text does not overflow the progress circle */
+.ant-progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 2;
+    white-space: nowrap; /* Prevent text from breaking into new lines */
+    overflow: hidden; /* Hide overflow text */
+    text-overflow: ellipsis; /* Add ellipsis if text overflows */
+}
+
+/* SVG inside progress circle for progress visualization */
+.progress-circle svg {
+    position: relative;
+    z-index: 1;
+    width: 100%; /* Ensure full width usage */
+    height: 100%; /* Ensure full height usage */
+}
+
+/* Text below each progress circle (e.g. CPU, RAM, Disk, etc.) */
+.progress-text {
+    margin-top: 10px;
+    font-size: 14px;
+    max-width: 120px; /* Limit the width of the text */
+    overflow: hidden; /* Hide any overflow text */
+    text-overflow: ellipsis; /* Add ellipsis if text overflows */
+    text-align: center;
+}
+
+/* Bold label text */
+.label {
+    font-weight: bold;
+}
+
+/* Styling for system information section */
+.info div {
+    margin-bottom: 10px;
+}
+
+/* Styling for the table that shows process information */
+.ant-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+/* Table header styling */
+.ant-table th, .ant-table td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+/* Background color for the table header */
+.ant-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+/* Ensure proper box-sizing */
+* {
+    box-sizing: border-box;
+}
+
+.network-info-container {
+    display: flex;
+    justify-content: space-between;
+}
+
+.info-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-box {
+    display: flex;
+    flex-direction: row;
+    gap: 20px; /* Space between the two sets of information */
+}
+
+.info-box p {
+    margin: 0;
+}

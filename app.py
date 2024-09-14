@@ -5,15 +5,22 @@ from datetime import timedelta
 from flask_cors import CORS
 import os
 import json
+import time
 import shutil
 import random
 import datetime
+import psutil
+import platform
+import patoolib
+import py7zr
+# from datetime import datetime
+# import GPUtil
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = 'supersecretkey'
 # ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 def allowed_file(filename):
     # return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -264,6 +271,195 @@ def rename_item():
             flash(f'Error renaming item: {str(e)}', 'danger')
 
     return redirect(url_for('file_manager', current_path=current_path))
+
+@app.route('/unzip', methods=['POST'])
+def unzip_file():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    current_path = request.form.get('current_path', '')
+    zip_file_name = request.form.get('zip_file_name', '')
+
+    if current_path and zip_file_name:
+        full_zip_path = os.path.join('/', current_path.replace('/', os.sep), zip_file_name)
+
+        try:
+            if full_zip_path.endswith('.7z'):
+                with py7zr.SevenZipFile(full_zip_path, mode='r') as z:
+                    z.extractall(path=os.path.dirname(full_zip_path))
+                flash(f'7z file "{zip_file_name}" extracted successfully!', 'success')
+            else:
+                patoolib.extract_archive(full_zip_path, outdir=os.path.dirname(full_zip_path))
+                flash(f'File "{zip_file_name}" extracted successfully!', 'success')
+
+        except Exception as e:
+            flash(f'Error extracting file: {str(e)}', 'danger')
+
+    return redirect(url_for('file_manager', current_path=current_path))
+
+def get_system_info():
+    uname = platform.uname()
+    boot_time_timestamp = psutil.boot_time()
+    bt = datetime.datetime.fromtimestamp(boot_time_timestamp)
+    cpufreq = psutil.cpu_freq()
+    svmem = psutil.virtual_memory()
+    partitions = psutil.disk_partitions()
+    disk_info = []
+    for partition in partitions:
+        try:
+            partition_usage = psutil.disk_usage(partition.mountpoint)
+        except PermissionError:
+            continue
+        disk_info.append({
+            "device": partition.device,
+            "mountpoint": partition.mountpoint,
+            "fstype": partition.fstype,
+            "total_size": partition_usage.total,
+            "used": partition_usage.used,
+            "free": partition_usage.free,
+            "percentage": partition_usage.percent
+        })
+
+    # gpus = GPUtil.getGPUs()
+    # gpu_info = []
+    # for gpu in gpus:
+    #     gpu_info.append({
+    #         "id": gpu.id,
+    #         "load": gpu.load * 100,
+    #         "memory_free": gpu.memoryFree * (1024 ** 2),
+    #         "memory_used": gpu.memoryUsed * (1024 ** 2),
+    #         "memory_total": gpu.memoryTotal * (1024 ** 2),
+    #         "temperature": gpu.temperature
+    #     })
+
+    # if_addrs = psutil.net_if_addrs()
+    # net_info = {}
+    # for interface_name, interface_addresses in if_addrs.items():
+    #     addrs = []
+    #     for address in interface_addresses:
+    #         if str(address.family) == 'AddressFamily.AF_INET':
+    #             addrs.append({
+    #                 "ip_address": address.address,
+    #                 "netmask": address.netmask,
+    #                 "broadcast_ip": address.broadcast
+    #             })
+    #         elif str(address.family) == 'AddressFamily.AF_PACKET':
+    #             addrs.append({
+    #                 "mac_address": address.address,
+    #                 "netmask": address.netmask,
+    #                 "broadcast_mac": address.broadcast
+    #             })
+    #     net_info[interface_name] = addrs
+
+    # net_io = psutil.net_io_counters()
+    # old_value = psutil.net_io_counters()
+    # time.sleep(1)
+    # new_value = psutil.net_io_counters()
+
+    data = {
+        "system_information": {
+            "system": uname.system,
+            "node_name": uname.node,
+            "release": uname.release,
+            "version": uname.version,
+            "machine": uname.machine,
+            "processor": uname.processor,
+            "boot_time": f"{bt.year}/{bt.month}/{bt.day} {bt.hour}:{bt.minute}:{bt.second}"
+        },
+        "cpu_info": {
+            "physical_cores": psutil.cpu_count(logical=False),
+            "total_cores": psutil.cpu_count(logical=True),
+            "max_frequency": cpufreq.max,
+            "min_frequency": cpufreq.min,
+            "current_frequency": cpufreq.current,
+            # "cpu_usage_per_core": [psutil.cpu_percent(percpu=True, interval=1)],
+            "total_cpu_usage": psutil.cpu_percent(interval=0.15),
+        },
+        "memory_information": {
+            "total": svmem.total,
+            "available": svmem.available,
+            "used": svmem.used,
+            "percentage": svmem.percent
+        },
+        "disk_information": disk_info,
+        # "gpu_information": gpu_info,
+        # "network_information": {
+        #     "interfaces": net_info,
+        #     "io_stats": {
+        #         "total_bytes_sent": net_io.bytes_sent,
+        #         "total_bytes_received": net_io.bytes_recv,
+        #         "bytes_sent": new_value.bytes_sent - old_value.bytes_sent,
+        #         "bytes_received": new_value.bytes_recv - old_value.bytes_recv
+        #     }
+        # }
+    }
+
+    return data
+
+def get_network_info():
+    # if_addrs = psutil.net_if_addrs()
+    # net_info = {}
+    # for interface_name, interface_addresses in if_addrs.items():
+    #     addrs = []
+    #     for address in interface_addresses:
+    #         if str(address.family) == 'AddressFamily.AF_INET':
+    #             addrs.append({
+    #                 "ip_address": address.address,
+    #                 "netmask": address.netmask,
+    #                 "broadcast_ip": address.broadcast
+    #             })
+    #         elif str(address.family) == 'AddressFamily.AF_PACKET':
+    #             addrs.append({
+    #                 "mac_address": address.address,
+    #                 "netmask": address.netmask,
+    #                 "broadcast_mac": address.broadcast
+    #             })
+    #     net_info[interface_name] = addrs
+
+    net_io = psutil.net_io_counters()
+    time.sleep(1)
+    new_value = psutil.net_io_counters()
+
+    data = {
+        "network_information": {
+            # "interfaces": net_info,
+            "io_stats": {
+                "total_bytes_sent": net_io.bytes_sent,
+                "total_bytes_received": net_io.bytes_recv,
+                "bytes_sent": new_value.bytes_sent - net_io.bytes_sent,
+                "bytes_received": new_value.bytes_recv - net_io.bytes_recv
+            }
+        }
+    }
+
+    return data
+
+# Get network info
+network_info = get_network_info()
+
+# Convert to JSON string with indentation for pretty printing
+network_info_json = json.dumps(network_info, indent=4)
+
+# Print the JSON string
+print(network_info_json)
+
+@app.route('/api/system-info', methods=['GET'])
+def system_info():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return jsonify(get_system_info())
+
+@app.route('/api/network-info', methods=['GET'])
+def network_info():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return jsonify(get_network_info())
+
+@app.route('/system-info')
+def system_info_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return render_template('system_info.html', version=VERSION)
 
 if __name__ == '__main__':
     config_ = config()

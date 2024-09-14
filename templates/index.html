@@ -128,11 +128,17 @@
                         {% endwith %}
 
                         <h5>Current Path: /{{ current_path }}</h5>
-
-                        {% if current_path %}
-                            <a href="{{ url_for('index', path= '/' if '/' not in current_path else current_path.rsplit('/', 1)[0]) }}" class="btn btn-secondary mb-3">Back</a>
-                        {% endif %}
-
+                    
+                        <div class="d-flex mb-3 align-items-center">
+                            {% if current_path %}
+                                <a href="{{ url_for('index', path= '/' if '/' not in current_path else current_path.rsplit('/', 1)[0]) }}" class="btn btn-secondary">Back</a>
+                            {% endif %}
+    
+                            <div class="input-group ml-2" style="width: 110px;">
+                                <input type="text" class="form-control" id="filter-input" placeholder="Filter files...">
+                            </div>
+                        </div>
+    
                         <table id="file-table" class="table table-striped">
                             <thead>
                                 <tr>
@@ -168,6 +174,7 @@
                                                     {% else %}
                                                         <button class="dropdown-item delete-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Delete</button>
                                                         <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="File">Rename</button>
+                                                        <button class="dropdown-item unzip-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Unzip</button>
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -179,6 +186,7 @@
                         </table>
 
                         <a href="{{ url_for('file_manager', current_path=current_path) }}" class="btn btn-primary">Manage Files</a>
+                        <a href="{{ url_for('system_info_page') }}" class="btn btn-primary">System info</a>
                         <a href="{{ url_for('index', path=current_path) }}" class="btn btn-primary">Refresh</a>
                         <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
                     </div>
@@ -329,6 +337,26 @@
         }
     });
 
+    $('#file-table').on('click', '.unzip-file-btn', function() {
+        var filepath = $(this).data('filepath');
+        if (confirm('Are you sure you want to unzip the file: ' + filepath + '?')) {
+            $.ajax({
+                url: '/unzip',
+                type: 'POST',
+                data: {
+                    current_path: "{{ current_path }}",
+                    zip_file_name: filepath.split('/').pop()
+                },
+                success: function(response) {
+                    location.reload();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error unzipping file: ' + error);
+                }
+            });
+        }
+    });
+
     $('.dropdown-toggle').click(function(e) {
         e.stopPropagation();
         var $dropdownMenu = $(this).next('.dropdown-menu');
@@ -338,6 +366,20 @@
 
     $(document).click(function() {
         $('.dropdown-menu').hide();
+    });
+
+    $(document).ready(function() {
+        $('#filter-input').on('keyup', function() {
+            var filterTerm = $(this).val().toLowerCase();
+            $('#file-table tbody tr').each(function() {
+                var fileName = $(this).find('td:first-child a').text().toLowerCase();
+                if (fileName.includes(filterTerm)) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        });
     });
 
     });

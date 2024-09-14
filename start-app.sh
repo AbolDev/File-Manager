@@ -1,12 +1,12 @@
 #!/bin/bash
 
-app_file="app.py"
+bot_file="app.py"
 
-screen -dmS f-m-session python3 "$app_file"
+screen -dmS f-m-session python3 "$bot_file"
 
 if [ $? -eq 0 ]; then
-    echo "File Manager is running in screen session 'f-m-session'."
+    echo "Bot is running in screen session 'f-m-session'."
 else
-    echo "Failed to start File Manager."
+    echo "Failed to start bot."
     exit 1
 fi
