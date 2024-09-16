@@ -7,13 +7,30 @@ plain='\033[0m'
 
 cur_dir=$(pwd)
 use_defaults=false
+username_param=""
+password_param=""
+port_param=""
 
-# Check for the --default flag
+# Parse input arguments
 for arg in "$@"; do
-    if [[ "$arg" == "--default" ]]; then
-        use_defaults=true
-        break
-    fi
+    case $arg in
+        --default)
+            use_defaults=true
+            ;;
+        --username=*)
+            username_param="${arg#*=}"
+            ;;
+        --password=*)
+            password_param="${arg#*=}"
+            ;;
+        --port=*)
+            port_param="${arg#*=}"
+            ;;
+        *)
+            echo -e "${red}Unknown option: $arg${plain}"
+            exit 1
+            ;;
+    esac
 done
 
 # Check root
@@ -67,31 +84,44 @@ get_user_input() {
     local default_port=$(jq -r '.port' config.json)
 
     if [[ "$use_defaults" == true ]]; then
-        username=$default_username
-        password=$default_password
-        port=$default_port
+        username=${username_param:-$default_username}
+        password=${password_param:-$default_password}
+        port=${port_param:-$default_port}
     else
-        read -p "Enter username [default: ${default_username}]: " username
-        username=${username:-$default_username}
+        username=${username_param:-$default_username}
+        password=${password_param:-$default_password}
+        port=${port_param:-$default_port}
 
-        read -p "Enter password [default: ${default_password}]: " password
-        password=${password:-$default_password}
+        # If no username is passed via argument, prompt the user
+        if [[ -z "$username_param" ]]; then
+            read -p "Enter username [default: ${default_username}]: " username
+            username=${username:-$default_username}
+        fi
 
-        while true; do
-            read -p "Enter port [default: ${default_port}]: " port
-            port=${port:-$default_port}
+        # If no password is passed via argument, prompt the user
+        if [[ -z "$password_param" ]]; then
+            read -p "Enter password [default: ${default_password}]: " password
+            password=${password:-$default_password}
+        fi
 
-            if [[ ! $port =~ ^[0-9]+$ ]]; then
-                echo -e "${red}Invalid port number. Please enter a valid number.${plain}"
-                continue
-            fi
+        # If no port is passed via argument, prompt the user
+        if [[ -z "$port_param" ]]; then
+            while true; do
+                read -p "Enter port [default: ${default_port}]: " port
+                port=${port:-$default_port}
 
-            if lsof -i:$port > /dev/null; then
-                echo -e "${red}Port ${port} is in use. Please enter another port.${plain}"
-            else
-                break
-            fi
-        done
+                if [[ ! $port =~ ^[0-9]+$ ]]; then
+                    echo -e "${red}Invalid port number. Please enter a valid number.${plain}"
+                    continue
+                fi
+
+                if lsof -i:$port > /dev/null; then
+                    echo -e "${red}Port ${port} is in use. Please enter another port.${plain}"
+                else
+                    break
+                fi
+            done
+        fi
     fi
 
     jq --arg username "$username" --arg password "$password" --arg port "$port" \
