@@ -6,6 +6,15 @@ yellow='\033[0;33m'
 plain='\033[0m'
 
 cur_dir=$(pwd)
+use_defaults=false
+
+# Check for the --default flag
+for arg in "$@"; do
+    if [[ "$arg" == "--default" ]]; then
+        use_defaults=true
+        break
+    fi
+done
 
 # Check root
 [[ $EUID -ne 0 ]] && echo -e "${red}Fatal error: ${plain} Please run this script with root privilege \n" && exit 1
@@ -57,27 +66,33 @@ get_user_input() {
     local default_password=$(jq -r '.password' config.json)
     local default_port=$(jq -r '.port' config.json)
 
-    read -p "Enter username [default: ${default_username}]: " username
-    username=${username:-$default_username}
+    if [[ "$use_defaults" == true ]]; then
+        username=$default_username
+        password=$default_password
+        port=$default_port
+    else
+        read -p "Enter username [default: ${default_username}]: " username
+        username=${username:-$default_username}
 
-    read -p "Enter password [default: ${default_password}]: " password
-    password=${password:-$default_password}
+        read -p "Enter password [default: ${default_password}]: " password
+        password=${password:-$default_password}
 
-    while true; do
-        read -p "Enter port [default: ${default_port}]: " port
-        port=${port:-$default_port}
-        
-        if [[ ! $port =~ ^[0-9]+$ ]]; then
-            echo -e "${red}Invalid port number. Please enter a valid number.${plain}"
-            continue
-        fi
+        while true; do
+            read -p "Enter port [default: ${default_port}]: " port
+            port=${port:-$default_port}
 
-        if lsof -i:$port > /dev/null; then
-            echo -e "${red}Port ${port} is in use. Please enter another port.${plain}"
-        else
-            break
-        fi
-    done
+            if [[ ! $port =~ ^[0-9]+$ ]]; then
+                echo -e "${red}Invalid port number. Please enter a valid number.${plain}"
+                continue
+            fi
+
+            if lsof -i:$port > /dev/null; then
+                echo -e "${red}Port ${port} is in use. Please enter another port.${plain}"
+            else
+                break
+            fi
+        done
+    fi
 
     jq --arg username "$username" --arg password "$password" --arg port "$port" \
        '.username=$username | .password=$password | .port=$port' config.json > config.tmp && mv config.tmp config.json
