@@ -3,11 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>System info</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/system_info.style.css') }}">
+    <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> -->
 </head>
 <body>
     <div id="root" class="dashboard">
+        <!-- <a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a> -->
+         <!-- class="mt-3" -->
+
         <div class="ant-row" style="margin-bottom: 20px;">
             <div class="ant-col ant-col-sm-24 ant-col-md-24 card">
                 <div class="ant-card ant-card-bordered ant-card-hoverable">
@@ -71,20 +76,17 @@
                 </div>
             </div>
         </div>
-        <!-- Add this section below your existing content -->
         <div class="ant-row" style="margin-bottom: 20px;">
             <div class="ant-col ant-col-sm-24 ant-col-md-24 card">
                 <div class="ant-card ant-card-bordered ant-card-hoverable">
                     <div class="ant-card-body">
                         <div class="network-info-container">
-                            <!-- Box for Total Upload and Download -->
                             <div class="info-group">
                                 <div class="info-box">
                                     <p id="total-upload">Out: 0.00 GB</p>
                                     <p id="total-download">In: 0.00 GB</p>
                                 </div>
                             </div>
-                            <!-- Box for Current Upload Speed and Current Download Speed -->
                             <div class="info-group">
                                 <div class="info-box">
                                     <p id="current-upload">Up: 0.00 KB/s</p>

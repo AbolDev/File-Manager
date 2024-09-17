@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Manager</title>
+    <meta name="robots" content="noindex, nofollow">
+    <title>File Uploader</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -76,7 +77,7 @@
         <div class="row justify-content-center">
             <div class="col-md-10">
                 <div class="card">
-                    <div class="card-header">File Manager</div>
+                    <div class="card-header">File Uploader</div>
                     <div class="card-body">
                         {% with messages = get_flashed_messages(with_categories=true) %}
                             {% if messages %}
@@ -93,7 +94,9 @@
                             {% endif %}
                         {% endwith %}
 
-                        <h5>Current Path: /{{ current_path }}</h5>
+                        <a href="{{ url_for('index', path=current_path) }}" class="btn btn-secondary">Back</a>
+
+                        <h5 class="mt-3">Current Path: /{{ current_path }}</h5>
 
                         <div class="card mb-3">
                             <div class="card-header">Upload File</div>
@@ -124,9 +127,6 @@
                                 </form>
                             </div>
                         </div>
-
-                        <a href="{{ url_for('index', path=current_path) }}" class="btn btn-secondary">Back</a>
-                        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
                     </div>
                 </div>
             </div>
