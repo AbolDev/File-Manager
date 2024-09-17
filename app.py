@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
-# from werkzeug.utils import secure_filename
 from captcha.image import ImageCaptcha
 from datetime import timedelta
 from flask_cors import CORS
@@ -13,17 +12,18 @@ import psutil
 import platform
 import patoolib
 import py7zr
+import zipfile
+import tarfile
+import secrets
 # import GPUtil
 
 app = Flask(__name__)
 CORS(app)
-app.secret_key = 'supersecretkey'
-# ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
-VERSION = "0.1.3"
 
-def allowed_file(filename):
-    # return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-    return True
+app.secret_key = secrets.token_hex(16)
+# app.secret_key = 'supersecretkey'
+
+VERSION = "0.1.4"
 
 def config():
     with open("config.json", "rb") as file:
@@ -40,11 +40,11 @@ def get_parent_directory(path):
 def formatSize(size, decimal_places=1):
     try:
         size = float(size)
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB']:
             if size < 1024.0:
                 return f"{size:.{decimal_places}f} {unit}"
             size /= 1024.0
-        return f"{size:.{decimal_places}f} PB"
+        return f"{size:.{decimal_places}f} YB"
     except:
         return size
 
@@ -117,7 +117,6 @@ def random_number_without_1_and_7():
 
 @app.route('/captcha', methods=['GET', 'POST'])
 def captcha_gen():
-    # captcha_text = str(random.randint(10000, 99999))
     captcha_text = random_number_without_1_and_7()
     captcha = ImageCaptcha()
     captcha_image = captcha.generate(captcha_text)
@@ -138,7 +137,6 @@ def login():
                     session['logged_in'] = True
                     flash('Logged in successfully!', 'success')
 
-                    # Set session['logged_in'] to permanent
                     session.permanent = True
                     app.permanent_session_lifetime = timedelta(days=365*100)
 
@@ -172,13 +170,9 @@ def file_manager(current_path=''):
             flash('No selected file', 'danger')
             return redirect(request.url)
         
-        if file and allowed_file(file.filename):
-            # filename = secure_filename(file.filename)
-            filename = file.filename
-            
-            file.save(os.path.join(full_path, filename))
-            flash('File uploaded successfully!', 'success')
-            return redirect(request.url)
+        file.save(os.path.join(full_path, file.filename))
+        flash('File uploaded successfully!', 'success')
+        return redirect(request.url)
 
     if not os.path.exists(full_path) or not os.path.isdir(full_path):
         flash('The system cannot find the path specified.', 'danger')
@@ -273,8 +267,54 @@ def rename_item():
 
     return redirect(url_for('file_manager', current_path=current_path))
 
-@app.route('/unzip', methods=['POST'])
-def unzip_file():
+@app.route('/copy', methods=['POST'])
+def copy_file():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    file_path = request.form.get('file_path', '')
+    new_path = request.form.get('new_path', '')
+
+    if not file_path or not new_path:
+        return jsonify({'error': 'Invalid file path or destination path'}), 400
+
+    try:
+        file_path = os.path.join('/', file_path.replace('/', os.sep))
+        new_path = os.path.join('/', new_path.replace('/', os.sep))
+        
+        shutil.copy2(file_path, new_path)
+        flash(f'File copied to "{new_path}" successfully!', 'success')
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/cut', methods=['POST'])
+def cut_file():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    file_path = request.form.get('file_path', '')
+    new_path = request.form.get('new_path', '')
+
+    if not file_path or not new_path:
+        return jsonify({'error': 'Invalid file path or destination path'}), 400
+
+    try:
+        file_path = os.path.join('/', file_path.replace('/', os.sep))
+        new_path = os.path.join('/', new_path.replace('/', os.sep))
+
+        destination_dir = os.path.dirname(new_path)
+        if not os.path.exists(destination_dir):
+            os.makedirs(destination_dir)
+
+        shutil.move(file_path, new_path)
+        flash(f'File moved to "{new_path}" successfully!', 'success')
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/extract', methods=['POST'])
+def extract_file():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
@@ -297,6 +337,71 @@ def unzip_file():
             flash(f'Error extracting file: {str(e)}', 'danger')
 
     return redirect(url_for('file_manager', current_path=current_path))
+
+@app.route('/compression', methods=['POST'])
+def compression_file():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    file_or_folder_path = request.form.get('file_or_folder_path', '')
+    compression_type = request.form.get('compression_type', 'zip')  # zip, 7z, rar, tar
+
+    if file_or_folder_path:
+        full_path = os.path.join('/', file_or_folder_path.replace('/', os.sep))
+
+        try:
+            if os.path.isfile(full_path):
+                file_name = os.path.basename(full_path) + f'.{compression_type}'
+                output_path = os.path.join(os.path.dirname(full_path), file_name)
+            elif os.path.isdir(full_path):
+                file_name = os.path.basename(full_path.rstrip(os.sep)) + f'.{compression_type}'
+                output_path = os.path.join(os.path.dirname(full_path), file_name)
+            else:
+                flash('Invalid path: not a file or folder', 'danger')
+                return redirect(url_for('file_manager', current_path=os.path.dirname(full_path)))
+
+            if compression_type == 'zip':
+                with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    if os.path.isfile(full_path):
+                        zf.write(full_path, os.path.basename(full_path))
+                    elif os.path.isdir(full_path):
+                        for root, dirs, files in os.walk(full_path):
+                            for file in files:
+                                file_path = os.path.join(root, file)
+                                zf.write(file_path, os.path.relpath(file_path, os.path.dirname(full_path)))
+            elif compression_type == '7z':
+                with py7zr.SevenZipFile(output_path, mode='w') as archive:
+                    if os.path.isfile(full_path):
+                        archive.write(full_path, os.path.basename(full_path))
+                    elif os.path.isdir(full_path):
+                        archive.writeall(full_path, os.path.basename(full_path))
+            # elif compression_type == 'rar':
+            #     # patoolib.create_archive(output_path, [full_path])
+            #     # Prepare the list of files/folders to compress
+            #     files_to_archive = []
+            #     if os.path.isfile(full_path):
+            #         files_to_archive.append(full_path)
+            #     elif os.path.isdir(full_path):
+            #         for root, dirs, files in os.walk(full_path):
+            #             for file in files:
+            #                 files_to_archive.append(os.path.join(root, file))
+            #     patoolib.create_archive(output_path, files_to_archive)
+            elif compression_type == 'tar':
+                with tarfile.open(output_path, 'w') as tar:
+                    if os.path.isfile(full_path):
+                        tar.add(full_path, arcname=os.path.basename(full_path))
+                    elif os.path.isdir(full_path):
+                        tar.add(full_path, arcname=os.path.basename(full_path))
+            else:
+                flash('Unsupported compression type', 'danger')
+                return redirect(url_for('file_manager', current_path=os.path.dirname(full_path)))
+
+            flash(f'Compressed successfully into "{file_name}"!', 'success')
+
+        except Exception as e:
+            flash(f'Error compressing files: {str(e)}', 'danger')
+
+    return redirect(url_for('file_manager', current_path=os.path.dirname(full_path)))
 
 def get_system_info():
     uname = platform.uname()
@@ -402,6 +507,55 @@ def get_network_info():
 
     return data
 
+@app.route('/api/change-username', methods=['POST'])
+def change_username():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    new_username = request.form.get('new_username')
+
+    if new_username:
+        try:
+            config_ = config()
+            
+            config_['username'] = new_username
+            
+            with open("config.json", "w") as file:
+                json.dump(config_, file)
+            
+            session.clear()
+
+            flash('Username changed successfully. All users have been logged out.', 'success')
+            return jsonify({"message": "Username updated successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    return jsonify({"error": "Invalid username"}), 400
+
+@app.route('/api/change-password', methods=['POST'])
+def change_password():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+        # return jsonify({"error": "Unauthorized"}), 403
+
+    new_password = request.form.get('new_password')
+
+    if new_password:
+        try:
+            config_ = config()
+            
+            config_['password'] = new_password
+            
+            with open("config.json", "w") as file:
+                json.dump(config_, file)
+            
+            session.clear()
+
+            flash('Password changed successfully. All users have been logged out.', 'success')
+            return jsonify({"message": "Password updated successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    return jsonify({"error": "Invalid password"}), 400
+
 @app.route('/api/system-info', methods=['GET'])
 def system_info():
     if not session.get('logged_in'):
@@ -419,6 +573,12 @@ def system_info_page():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     return render_template('system_info.html', version=VERSION)
+
+@app.route('/settings')
+def settings_page():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return render_template('settings.html')
 
 if __name__ == '__main__':
     config_ = config()
