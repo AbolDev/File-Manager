@@ -6,15 +6,20 @@ File-Manager is a web application designed to help you manage your files easily 
 
 ## Features
 
-- User-friendly interface
-- Secure login
-- Display all files in the system
-- Open folders and display their contents
-- Download files
-- Upload files (single and multiple)
-- Create folders
-- Rename files and folders
-- Delete files and folders
+- **Simple Interface**: Easy-to-use design for all users.
+- **Secure Login**: Safe and protected user authentication.
+- **File Viewer**: See all system files in one place.
+- **Folder Browsing**: Open and explore folder contents.
+- **File Download**: Quickly download files with one click.
+- **File Upload**: Upload single or multiple files at once.
+- **Create Folders**: Easily make new folders for organization.
+- **Rename Items**: Change the names of files and folders.
+- **Delete Items**: Remove files or folders easily.
+- **Copy Files and Folders**: Duplicate items effortlessly.
+- **Move Files and Folders**: Cut and transfer items between folders.
+- **Compress Files**: Zip files or folders into a compressed format.
+- **Extract Files**: Unzip compressed files and folders.
+- **System Info**: Check system details and updates.
 
 ## Installation
 
