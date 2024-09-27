@@ -132,3 +132,71 @@ body {
 .info-box p {
     margin: 0;
 }
+
+
+body.dark-mode {
+    background-color: #2f3542;
+    color: #f1f2f6;
+}
+
+body.dark-mode #root {
+    background-color: #2f3542;
+}
+
+body.dark-mode .footer {
+    background-color: rgba(30, 39, 46, 0.8);
+    color: #f1f2f6;
+}
+
+body.dark-mode .ant-card {
+    background-color: #1e272e;
+    border-color: #485460;
+}
+
+body.dark-mode .ant-progress-circle-path {
+    stroke: #096dd9;
+}
+
+body.dark-mode .info .label {
+    color: #f1f2f6;
+}
+
+body.dark-mode .info p {
+    color: #f1f2f6;
+}
+
+body.dark-mode .ant-card-bordered {
+    border-color: #485460;
+}
+
+.footer {
+    text-align: center;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    position: fixed;
+    margin-top: 20px;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: #666;
+}
+
+.footer a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+body.dark-mode .card-header {
+    background-color: #485460;
+    border-color: #1e272e;
+    color: #f1f2f6;
+}
+body.dark-mode .btn-outline-secondary {
+    color: #a6a6a6;
+    border-color: #a6a6a6;
+}

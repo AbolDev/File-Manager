@@ -1,0 +1,105 @@
+.alert-dismissible {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.alert-dismissible .close {
+    margin-left: auto;
+    padding: 0.75rem 1rem;
+    color: inherit;
+}
+
+.captcha-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.captcha-img {
+    margin-left: 10px;
+    border-radius: 5px;
+}
+
+.change-captcha-btn {
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.change-captcha-btn i {
+    font-size: 1.5rem;
+    color: #007bff;
+}
+
+.captcha-input {
+    flex: 0 0 150px;
+}
+
+.footer {
+    text-align: center;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    position: fixed;
+    margin-top: 20px;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: #666;
+}
+
+.footer a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+body.dark-mode .btn-outline-secondary {
+    color: #a6a6a6;
+    border-color: #a6a6a6;
+}
+
+body.dark-mode {
+    background-color: #2f3542;
+    color: #f1f2f6;
+}
+body.dark-mode .card {
+    background-color: #1e272e;
+    border-color: #485460;
+}
+body.dark-mode .card-header {
+    background-color: #485460;
+    border-color: #1e272e;
+    color: #f1f2f6;
+}
+body.dark-mode .btn-secondary {
+    background-color: #485460;
+    border-color: #1e272e;
+}
+body.dark-mode .footer {
+    background-color: rgba(30, 39, 46, 0.8);
+    color: #f1f2f6;
+}
+.dark-mode th,
+.dark-mode td {
+    color: #ffffff;
+}
+body.dark-mode .input-group input {
+    background-color: #3a3f47;
+    color: #f1f2f6;
+    border: 1px solid #485460;
+}
+body.dark-mode .input-group input::placeholder {
+    color: #a4b0be;
+}
+body.dark-mode .btn-outline-secondary {
+    color: #a6a6a6;
+    border-color: #a6a6a6;
+}

@@ -1,3 +1,30 @@
+document.addEventListener('DOMContentLoaded', function() {
+    var themeToggle = document.getElementById('theme-toggle');
+    var isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+    function enableDarkMode() {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('darkMode', 'true');
+    }
+
+    function disableDarkMode() {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', 'false');
+    }
+
+    if (isDarkMode) {
+        enableDarkMode();
+    }
+
+    themeToggle.addEventListener('click', function() {
+        if (document.body.classList.contains('dark-mode')) {
+            disableDarkMode();
+        } else {
+            enableDarkMode();
+        }
+    });
+});
+
 function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;

@@ -5,113 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>File Manager</title>
+
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        .alert-dismissible {
-            display: flex;
-            align-items: center;
-            position: relative;
-        }
-
-        .alert-dismissible .close {
-            margin-left: auto;
-            padding: 0.75rem 1rem;
-            color: inherit;
-        }
-
-        .sort {
-            cursor: pointer;
-        }
-
-        .sort .arrow {
-            display: inline-block;
-            vertical-align: middle;
-            margin-left: 5px;
-            position: relative;
-            top: -1px;
-        }
-
-        .sort.asc .arrow:after {
-            content: "";
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-bottom: 5px solid black;
-            display: inline-block;
-            vertical-align: middle;
-        }
-
-        .sort.desc .arrow:after {
-            content: "";
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 5px solid black;
-            display: inline-block;
-            vertical-align: middle;
-        }
-
-        .more-btn {
-            background-color: #6c757d;
-            border: none;
-            outline: none;
-            color: #fff;
-            font-size: 1rem;
-        }
-
-        .dropdown-menu {
-            min-width: 8rem;
-            background-color: #6c757d;
-            border: 1px solid rgba(0, 0, 0, 0.15);
-        }
-
-        .dropdown-item {
-            color: #fff;
-        }
-
-        .dropdown-item:hover,
-        .dropdown-item:focus {
-            background-color: #5a6268;
-        }
-
-        .dropdown-menu {
-            min-width: unset;
-            background-color: #6c757d;
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            width: auto;
-            right: 0;
-            left: auto;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 5px 10px;
-            background-color: rgba(255, 255, 255, 0.8);
-            border-radius: 5px;
-            position: fixed;
-            margin-top: 20px;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 13px;
-            color: #666;
-        }
-
-        .footer a {
-            color: #0366d6;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.style.css') }}">
 </head>
 <body>
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-10">
                 <div class="card">
-                    <div class="card-header">File Manager</div>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        File Manager
+                        <button id="theme-toggle" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-moon"></i> Toggle Dark Mode
+                        </button>
+                    </div>
+
                     <div class="card-body">
                         {% with messages = get_flashed_messages(with_categories=true) %}
                             {% if messages %}
@@ -128,11 +40,11 @@
                             {% endif %}
                         {% endwith %}
 
-                        <a href="{{ url_for('file_manager', current_path=current_path) }}" class="btn btn-primary">Upload File</a>
-                        <a href="{{ url_for('system_info_page') }}" class="btn btn-primary">System info</a>
-                        <a href="{{ url_for('index', path=current_path) }}" class="btn btn-primary">Refresh</a>
-                        <a href="{{ url_for('logout') }}" class="btn btn-danger" onclick="return confirm('Are you sure you want to logout?')">Logout</a>
-                        <a href="{{ url_for('settings_page') }}" class="btn btn-secondary">
+                        <a href="{{ url_for('file_manager', current_path=current_path) }}" class="btn btn-primary mt-1">Upload File</a>
+                        <a href="{{ url_for('system_info_page') }}" class="btn btn-primary mt-1">System info</a>
+                        <a href="{{ url_for('index', path=current_path) }}" class="btn btn-primary mt-1">Refresh</a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-danger mt-1" onclick="return confirm('Are you sure you want to logout?')">Logout</a>
+                        <a href="{{ url_for('settings_page') }}" class="btn btn-secondary mt-1">
                             <i class="fas fa-cog"></i> Settings
                         </a>
 
@@ -148,61 +60,145 @@
                             </div>
                         </div>
 
-                        <table id="file-table" class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th class="sort" data-sort="name">Name <span class="arrow"></span></th>
-                                    <th class="sort" data-sort="type">Type <span class="arrow"></span></th>
-                                    <th class="sort" data-sort="size">Size <span class="arrow"></span></th>
-                                    <th class="sort" data-sort="mod_time">Last Modified <span class="arrow"></span></th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for file in files %}
+                        <div class="table-responsive">
+                            <table id="file-table" class="table table-striped">
+                                <thead>
                                     <tr>
-                                        <td>
-                                            {% if file.type == 'Directory' %}
-                                                <a href="{{ url_for('index', path=(current_path + '/' + file.name).strip('/')) }}">{{ file.name }}/</a>
-                                            {% else %}
-                                                <a href="{{ url_for('download_file', filename=(current_path + '/' + file.name).strip('/')) }}">{{ file.name }}</a>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ file.type }}</td>
-                                        <td data-size="{{ file.size }}">{{ formatSize(file.size) }}</td>
-                                        <td>{{ file.mod_time }}</td>
-                                        <td>
-                                            <div class="dropdown">
-                                                <button class="btn btn-secondary dropdown-toggle more-btn" type="button" id="dropdownMenuButton_{{ loop.index }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                                    &#8286;
-                                                </button>
-                                                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton_{{ loop.index }}">
-                                                    {% if file.type == 'Directory' %}
-                                                        <button class="dropdown-item delete-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Delete</button>
-                                                        <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="Directory">Rename</button>
-                                                        <button class="dropdown-item copy-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Copy</button>
-                                                        <button class="dropdown-item cut-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Cut</button>
-                                                        <button class="dropdown-item compress-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Compress</button>
-                                                    {% else %}
-                                                        <button class="dropdown-item delete-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Delete</button>
-                                                        <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="File">Rename</button>
-                                                        <button class="dropdown-item copy-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Copy</button>
-                                                        <button class="dropdown-item cut-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Cut</button>
-                                                        {% if file.name.endswith('.zip') or file.name.endswith('.7z') or file.name.endswith('.rar') or file.name.endswith('.tar') %}
-                                                            <button class="dropdown-item extract-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Extract</button>
-                                                        {% else %}
-                                                            <button class="dropdown-item compress-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Compress</button>
-                                                        {% endif %}
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        </td>
+                                        <th class="sort" data-sort="name">Name <span class="arrow"></span></th>
+                                        <th class="sort" data-sort="type">Type <span class="arrow"></span></th>
+                                        <th class="sort" data-sort="size">Size <span class="arrow"></span></th>
+                                        <th class="sort" data-sort="mod_time">Last Modified <span class="arrow"></span></th>
+                                        <th>Actions</th>
                                     </tr>
-                                {% endfor %}
-                            </tbody>                                                     
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {% for file in files %}
+                                        <tr>
+                                            <td>
+                                                {% if file.is_dir %}
+                                                    <a href="{{ url_for('index', path=(current_path + '/' + file.name).strip('/')) }}" title="{{ file.name }}">{{ file.name }}/</a>
+                                                {% else %}
+                                                    <a href="{{ url_for('download_file', filename=(current_path + '/' + file.name).strip('/')) }}" title="{{ file.name }}">{{ file.name }}</a>
+                                                {% endif %}
+                                            </td>
+
+                                            {% if file.is_dir %}
+                                                <td>Directory</td>
+                                            {% else %}
+                                                <td class="type-column" title="{{ file.mimetype }}">{{ 'Directory' if file.is_dir else 'File' }}</td>
+                                            {% endif %}
+
+                                            <td data-size="{{ file.size }}">{{ formatSize(file.size) }}</td>
+                                            <td data-modtime="{{ file.mod_time_timestamp }}" class="last-modified" title="">{{ file.mod_time }}</td>
+                                            <td>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-secondary dropdown-toggle more-btn" type="button" id="dropdownMenuButton_{{ loop.index }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                        &#8286;
+                                                    </button>
+                                                    <div class="dropdown-menu" aria-labelledby="dropdownMenuButton_{{ loop.index }}">
+                                                        {% if file.is_dir %}
+                                                            <button class="dropdown-item delete-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Delete</button>
+                                                            <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="Directory">Rename</button>
+                                                            <button class="dropdown-item copy-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Copy</button>
+                                                            <button class="dropdown-item cut-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Cut</button>
+                                                            <button class="dropdown-item compress-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Compress</button>
+                                                            <a href="#" class="dropdown-item share-btn" data-file-path="{{ current_path }}" data-file-name="{{ file.name }}">Share</a>
+                                                        {% else %}
+                                                            <button class="dropdown-item delete-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Delete</button>
+                                                            <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="File">Rename</button>
+                                                            <button class="dropdown-item copy-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Copy</button>
+                                                            <button class="dropdown-item cut-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Cut</button>
+                                                            {% if file.name.endswith('.zip') or file.name.endswith('.7z') or file.name.endswith('.rar') or file.name.endswith('.tar') %}
+                                                                <button class="dropdown-item extract-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Extract</button>
+                                                            {% else %}
+                                                                <button class="dropdown-item compress-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Compress</button>
+                                                            {% endif %}
+                                                            <a href="#" id="share-btn" class="dropdown-item" data-file-path="{{ current_path }}" data-file-name="{{ file.name }}">Share</a>
+                                                            <a href="{{ url_for('download_file', filename=(current_path + '/' + file.name).strip('/')) }}" class="dropdown-item">Download</a>
+                                                            {% if not file.mimetype or file.mimetype.split("/")[0] in ['text', 'application'] %}
+                                                                <a href="{{ url_for('file_editor', file_path=(current_path + '/' + file.name).strip('/')) }}" class="dropdown-item">Edit</a>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="shareModal" class="modal shareModal">
+        <div id="share-box" class="modal-content">
+            <div class="modal-header">
+                <h2 id="share-modal-title">Share File or Folder</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="input-group modal-body">
+                <form id="share-form">
+                    <div class="form-group">
+                        <label for="path">Path:</label>
+                        <input type="text" class="form-control" id="path" name="path" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="file_name">File Name:</label>
+                        <input type="text" class="form-control" id="file_name" name="file_name" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="shared_url">Shared URL:</label>
+                        <input type="text" class="form-control" id="shared_url" name="shared_url">
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description:</label>
+                        <textarea class="form-control" id="description" name="description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="total_allowed_requests">Total Allowed Requests:</label>
+                        <input type="number" class="form-control" id="total_allowed_requests" name="total_allowed_requests" value="0" oninput="checkEmpty(this)">
+                    </div>
+                    <div class="form-group">
+                        <label for="total_allowed_requests_per_ip">Total Allowed Requests Per IP:</label>
+                        <input type="number" class="form-control" id="total_allowed_requests_per_ip" name="total_allowed_requests_per_ip" value="0" oninput="checkEmpty(this)">
+                    </div>
+                    <div class="form-group">
+                        <label for="total_allowed_download_and_view">Total Allowed Downloads And View:</label>
+                        <input type="number" class="form-control" id="total_allowed_download_and_view" name="total_allowed_download_and_view" value="0" oninput="checkEmpty(this)">
+                    </div>
+                    <div class="form-group">
+                        <label for="total_allowed_download_and_view_per_ip">Total Allowed Downloads And View Per IP:</label>
+                        <input type="number" class="form-control" id="total_allowed_download_and_view_per_ip" name="total_allowed_download_and_view_per_ip" value="0" oninput="checkEmpty(this)">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">Name:</label>
+                        <input type="text" class="form-control" id="name" name="name">
+                    </div>
+                    <label for="auto_download" class="ml-3">
+                        <input type="checkbox" id="auto_download" name="auto_download" checked> Auto download
+                    </label>
+                    <br>
+                    <button type="submit" class="btn btn-primary mb-3 mt-3">Share</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="mediaModal" class="modal">
+        <div id="media-box" class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title"></h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Content will be dynamically inserted here -->
+            </div>
+            <div class="modal-footer">
+                <a id="modal-download" href="#" class="btn btn-primary">Download</a>
+                <a id="modal-open-tab" href="#" target="_blank" class="btn btn-secondary">Open in New Tab</a>
             </div>
         </div>
     </div>
@@ -219,7 +215,32 @@
 
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="{{ url_for('static', filename='js/index.script.js') }}"></script>
     <script>
+        $('#file-table').on('click', '.view-btn', function(e) {
+            e.preventDefault();
+            var filename = $(this).closest('tr').find('td:first-child a').text();
+            var filepath = "{{ current_path }}/" + filename;
+            var mimeType = getMimeType(filename);
+
+            $('#modal-title').text(filename);
+            $('#modal-download').attr('href', "{{ url_for('download_file', filename='') }}" + filepath);
+            $('#modal-open-tab').attr('href', "{{ url_for('show', filename='') }}" + filepath);
+
+            var $modalBody = $('.modal-body');
+            $modalBody.empty();
+
+            if (mimeType.startsWith('image/')) {
+                $modalBody.html('<img id="modal-media" src="' + "{{ url_for('show', filename='') }}" + filepath + '" alt="' + filename + '">');
+            } else if (mimeType.startsWith('video/')) {
+                $modalBody.html('<video id="modal-media" controls><source src="' + "{{ url_for('show', filename='') }}" + filepath + '" type="' + mimeType + '">Your browser does not support the video tag.</video>');
+            } else if (mimeType.startsWith('audio/')) {
+                $modalBody.html('<audio id="modal-media" controls><source src="' + "{{ url_for('show', filename='') }}" + filepath + '" type="' + mimeType + '">Your browser does not support the audio tag.</audio>');
+            }
+
+            $('#mediaModal').show();
+        });
+
         $(document).ready(function() {
             setTimeout(function() {
                 $(".alert").alert('close');
@@ -233,7 +254,7 @@
                 $(this).addClass(sortOrder);
                 sortTable(sortField, sortOrder);
             });
-        
+
             function sortTable(field, order) {
                 var rows = $('#file-table tbody tr').get();
                 rows.sort(function(a, b) {
@@ -241,40 +262,40 @@
                     var B = getCellValue(b, field);
                     var typeA = getType(a);
                     var typeB = getType(b);
-        
+
                     if (field === 'size') {
                         A = parseSize(A);
                         B = parseSize(B);
                     }
-        
+
                     if (field === 'size' && typeA === 'Directory' && typeB !== 'Directory') {
                         return 1;
                     }
                     if (field === 'size' && typeA !== 'Directory' && typeB === 'Directory') {
                         return -1;
                     }
-        
+
                     if (order === 'asc') {
                         return A < B ? -1 : A > B ? 1 : 0;
                     } else {
                         return A > B ? -1 : A < B ? 1 : 0;
                     }
                 });
-        
+
                 $.each(rows, function(index, row) {
                     $('#file-table tbody').append(row);
                 });
             }
-        
+
             function getCellValue(row, field) {
                 var cellValue = $(row).children('td').eq($('th[data-sort="' + field + '"]').index()).text();
                 return (field === 'size') ? cellValue : cellValue.toLowerCase();
             }
-        
+
             function getType(row) {
                 return $(row).find('td:eq(1)').text();
             }
-        
+
             function parseSize(size) {
                 var units = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
                 var unitIndex = units.findIndex(unit => size.includes(unit));
@@ -285,7 +306,7 @@
                     return numberPart * Math.pow(1024, unitIndex);
                 }
             }
-        
+
             function formatSize(size) {
                 return parseSize(size);
             }
@@ -305,7 +326,7 @@
                     });
                 }
             });
-        
+
             $('#file-table').on('click', '.delete-dir-btn', function() {
                 var dirpath = $(this).data('dirpath');
                 if (confirm('Are you sure you want to delete the directory: ' + dirpath + '?')) {
@@ -321,7 +342,7 @@
                     });
                 }
             });
-        
+
             $('#file-table').on('click', '.rename-btn', function() {
                 var itemName = $(this).data('name');
                 var itemType = $(this).data('type');
@@ -348,7 +369,7 @@
                     });
                 }
             });
-        
+
             $('#file-table').on('click', '.extract-file-btn', function() {
                 var filepath = $(this).data('filepath');
                 if (confirm('Are you sure you want to extract the file: ' + filepath + '?')) {
@@ -368,7 +389,7 @@
                     });
                 }
             });
-        
+
             $('#file-table').on('click', '.compress-file-btn', function() {
                 var filepath = $(this).data('filepath');
                 if (confirm('Are you sure you want to compress the file: ' + filepath + '?')) {
@@ -387,7 +408,7 @@
                     });
                 }
             });
-        
+
             $('#file-table').on('click', '.compress-dir-btn', function() {
                 var dirpath = $(this).data('dirpath');
                 if (confirm('Are you sure you want to compress the directory: ' + dirpath + '?')) {
@@ -413,7 +434,7 @@
                 $('.dropdown-menu').not($dropdownMenu).hide();
                 $dropdownMenu.toggle();
             });
-        
+
             $(document).click(function() {
                 $('.dropdown-menu').hide();
             });
@@ -535,6 +556,84 @@
                             alert('Error cutting directory: ' + error);
                         }
                     });
+                }
+            });
+        });
+
+        $('#file-table').on('click', '.share-btn', function(e) {
+            e.preventDefault();
+            const filePath = $(this).data('file-path');
+            $('#path').val(filePath);
+            const fileName = $(this).data('file-name');
+            $('#file_name').val(fileName);
+            $('#shareModal').show();
+        });
+
+        $(document).ready(function() {
+            $('#share-btn').on('click', function(e) {
+                e.preventDefault();
+                const filePath = $(this).data('file-path');
+                $('#path').val(filePath);
+                const fileName = $(this).data('file-name');
+                $('#file_name').val(fileName);
+                $('#shareModal').show();
+            });
+            
+            $('#share-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = $(this).serialize();
+                $.ajax({
+                    url: '/api/add-file-share',
+                    type: 'POST',
+                    data: formData,
+                    success: function(response) {
+                        if (response.status) {
+                            const shareUrl = response.results.url;
+                            const alertMessage = 'File shared successfully!';
+
+                            const customAlert = $('<div>').addClass('custom-alert')
+                                .append($('<p>').text(alertMessage))
+                                .append($('<p>').text('URL:').append($('<br>')).append($('<span>').text(shareUrl)))
+                                .append($('<button>').text('Open URL in New Tab').click(function() {
+                                    const newWindow = window.open(shareUrl, '_blank', 'noopener,noreferrer');
+                                    if (newWindow) {
+                                        newWindow.opener = null;
+                                        alert('Link opened in a new tab.');
+                                    } else {
+                                        alert('Your browser may have blocked the new window. Please check your popup settings.');
+                                    }
+                                }))
+                                .append($('<button>').text('Copy URL').click(function() {
+                                    navigator.clipboard.writeText(shareUrl).then(function() {
+                                        alert('URL copied to clipboard!');
+                                    }).catch(function(err) {
+                                        console.error('Failed to copy URL: ', err);
+                                    });
+                                }))
+                                .append($('<button>').text('Close').click(function() {
+                                    $('.custom-alert').remove();
+                                }));
+                            
+                            $('body').append(customAlert);
+                            $('#shareModal').hide();
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Error: ' + error);
+                    }
+                });
+            });
+            
+            $('.close').click(function() {
+                $('#shareModal').hide();
+            });
+            
+            $(window).click(function(e) {
+                if ($(e.target).is('#shareModal')) {
+                    $('#shareModal').hide();
                 }
             });
         });

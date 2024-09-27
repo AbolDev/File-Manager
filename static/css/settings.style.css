@@ -1,0 +1,56 @@
+body.dark-mode {
+    background-color: #2f3542;
+    color: #f1f2f6;
+}
+body.dark-mode .card {
+    background-color: #1e272e;
+    border-color: #485460;
+}
+body.dark-mode .card-header {
+    background-color: #485460;
+    border-color: #1e272e;
+    color: #f1f2f6;
+}
+body.dark-mode .btn-primary {
+    background-color: #485460;
+    border-color: #1e272e;
+}
+body.dark-mode .footer {
+    background-color: rgba(30, 39, 46, 0.8);
+    color: #f1f2f6;
+}
+body.dark-mode input {
+    background-color: #3a3f47;
+    color: #f1f2f6;
+    border: 1px solid #485460;
+}
+body.dark-mode .alert {
+    background-color: #3a3f47;
+    color: #f1f2f6;
+}
+body.dark-mode .form-group input::placeholder {
+    color: #a4b0be;
+}
+body.dark-mode .btn-outline-secondary {
+    color: #a6a6a6;
+    border-color: #a6a6a6;
+}
+.footer {
+    text-align: center;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: #666;
+}
+.footer a {
+    color: #0366d6;
+    text-decoration: none;
+}
+.footer a:hover {
+    text-decoration: underline;
+}

@@ -5,38 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Settings</title>
+
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        .footer {
-            text-align: center;
-            padding: 5px 10px;
-            background-color: rgba(255, 255, 255, 0.8);
-            border-radius: 5px;
-            position: fixed;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 13px;
-            color: #666;
-        }
-
-        .footer a {
-            color: #0366d6;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.style.css') }}">
 </head>
 <body>
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="card">
-                    <div class="card-header">Settings</div>
+                    <div class="card-header">
+                        Settings
+                        <button id="theme-toggle" class="btn btn-outline-secondary btn-sm float-right">
+                            <i class="fas fa-moon"></i> Toggle Dark Mode
+                        </button>                        
+                    </div>
+
                     <div class="card-body">
                         {% with messages = get_flashed_messages(with_categories=true) %}
                             {% if messages %}
@@ -60,8 +47,7 @@
                             <div class="card-body">
                                 <form id="changeUsernameForm">
                                     <div class="form-group">
-                                        <label for="newUsername">New Username</label>
-                                        <input type="text" class="form-control" id="newUsername" name="new_username" required>
+                                        <input type="text" class="form-control" id="newUsername" name="new_username" placeholder="New Username" required>
                                     </div>
                                     <button type="submit" class="btn btn-primary">Change Username</button>
                                 </form>
@@ -73,8 +59,7 @@
                             <div class="card-body">
                                 <form id="changePasswordForm">
                                     <div class="form-group">
-                                        <label for="newPassword">New Password</label>
-                                        <input type="password" class="form-control" id="newPassword" name="new_password" required>
+                                        <input type="password" class="form-control" id="newPassword" name="new_password" placeholder="New Password" required>
                                     </div>
                                     <button type="submit" class="btn btn-primary">Change Password</button>
                                 </form>
@@ -99,6 +84,34 @@
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
+        $(document).ready(function() {
+            var themeToggle = $('#theme-toggle');
+            var isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+            function enableDarkMode() {
+                $('body').addClass('dark-mode');
+                themeToggle.html('<i class="fas fa-sun"></i> Toggle Light Mode');
+                localStorage.setItem('darkMode', 'true');
+            }
+
+            function disableDarkMode() {
+                $('body').removeClass('dark-mode');
+                themeToggle.html('<i class="fas fa-moon"></i> Toggle Dark Mode');
+                localStorage.setItem('darkMode', 'false');
+            }
+
+            if (isDarkMode) {
+                enableDarkMode();
+            }
+
+            themeToggle.on('click', function() {
+                if ($('body').hasClass('dark-mode')) {
+                    disableDarkMode();
+                } else {
+                    enableDarkMode();
+                }
+            });
+        });
         $(document).ready(function() {
             $('#changeUsernameForm').on('submit', function(event) {
                 event.preventDefault();

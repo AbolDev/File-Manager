@@ -1,0 +1,91 @@
+.CodeMirror {
+    height: 400px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.footer {
+    text-align: center;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    position: fixed;
+    margin-top: 20px;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: #666;
+}
+.footer a {
+    color: #0366d6;
+    text-decoration: none;
+}
+.footer a:hover {
+    text-decoration: underline;
+}
+#editor-options {
+    margin-bottom: 10px;
+}
+body.dark-mode {
+    background-color: #2f3542;
+    color: #f1f2f6;
+}
+body.dark-mode .card {
+    background-color: #1e272e;
+    border-color: #485460;
+}
+body.dark-mode .card-header {
+    background-color: #485460;
+    border-color: #1e272e;
+    color: #f1f2f6;
+}
+body.dark-mode .btn-secondary {
+    background-color: #485460;
+    border-color: #1e272e;
+}
+body.dark-mode .footer {
+    background-color: rgba(30, 39, 46, 0.8);
+    color: #f1f2f6;
+}
+body.dark-mode select {
+    background-color: #3a3f47;
+    color: #f1f2f6;
+    border: 1px solid #485460;
+}
+body.dark-mode select option {
+    background-color: #3a3f47;
+    color: #f1f2f6;
+}
+body.dark-mode input[type="checkbox"] {
+    accent-color: #485460;
+}
+body.dark-mode textarea {
+    background-color: #3a3f47;
+    color: #f1f2f6;
+    border: 1px solid #485460;
+}
+body.dark-mode .btn-outline-secondary {
+    color: #a6a6a6;
+    border-color: #a6a6a6;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+body.dark-mode ::-webkit-scrollbar-track {
+    background-color: #3a3f47;
+}
+
+::-webkit-scrollbar-track {
+    background-color: #f7f7f7;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #999999;
+    border-radius: 4px;
+}
+
+body.dark-mode ::-webkit-scrollbar-thumb:hover {
+    background-color: #2f3542;
+}

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>File Editor</title>
+
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/theme/dracula.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/file_editor.style.css') }}">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        File Editor
+                        <button id="theme-toggle" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-moon"></i> Toggle Dark Mode
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                <div id="flash-messages">
+                                    {% for category, message in messages %}
+                                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                            {{ message }}
+                                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                            </button>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+
+                        <a href="{{ url_for('index', path=file_path.rsplit('/', 1)[0]) }}" class="btn btn-secondary mb-3">Back</a>
+
+                        <h5 class="mb-3">Editing: {{ file_path }}</h5>
+
+                        <div id="editor-options">
+                            <label for="font-size">Font Size:</label>
+                            <select id="font-size" class="form-control-sm">
+                                <option value="12">12px</option>
+                                <option value="14" selected>14px</option>
+                                <option value="16">16px</option>
+                                <option value="18">18px</option>
+                                <option value="20">20px</option>
+                            </select>
+
+                            <label for="word-wrap" class="ml-3">
+                                <input type="checkbox" id="word-wrap" checked> Word Wrap
+                            </label>
+
+                            <label for="language" class="ml-3">Language:</label>
+                            <select id="language" class="form-control-sm">
+                                <option value="text/plain">Plain Text</option>
+                                <option value="text/html">HTML</option>
+                                <option value="text/css">CSS</option>
+                                <option value="text/javascript">JavaScript</option>
+                                <option value="text/x-python">Python</option>
+                                <option value="text/x-java">Java</option>
+                                <option value="text/x-csrc">C</option>
+                                <option value="text/x-c++src">C++</option>
+                                <option value="text/x-php">PHP</option>
+                                <option value="application/json">JSON</option>
+                                <option value="text/x-markdown">Markdown</option>
+                            </select>
+                        </div>
+
+                        <form method="POST">
+                            <div class="form-group">
+                                <textarea id="editor" name="content">{{ content }}</textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div id="version-info">
+            <span>Version {{ version }}</span>
+            <span> | </span>
+            <a href="https://github.com/AbolDev/File-Manager" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github"></i> GitHub
+            </a>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/php/php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/markdown/markdown.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+                lineNumbers: true,
+                lineWrapping: true,
+                mode: 'text/plain',
+                theme: 'default'
+            });
+
+            document.getElementById('font-size').addEventListener('change', function() {
+                editor.getWrapperElement().style.fontSize = this.value + 'px';
+                editor.refresh();
+            });
+
+            document.getElementById('word-wrap').addEventListener('change', function() {
+                editor.setOption('lineWrapping', this.checked);
+            });
+
+            document.getElementById('language').addEventListener('change', function() {
+                editor.setOption('mode', this.value);
+            });
+
+            editor.getWrapperElement().style.fontSize = '14px';
+
+            document.querySelector('form').addEventListener('submit', function() {
+                editor.save();
+            });
+
+            var themeToggle = document.getElementById('theme-toggle');
+            var isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+            function enableDarkMode() {
+                document.body.classList.add('dark-mode');
+                editor.setOption('theme', 'dracula');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i> Toggle Light Mode';
+                localStorage.setItem('darkMode', 'true');
+            }
+
+            function disableDarkMode() {
+                document.body.classList.remove('dark-mode');
+                editor.setOption('theme', 'default');
+                themeToggle.innerHTML = '<i class="fas fa-moon"></i> Toggle Dark Mode';
+                localStorage.setItem('darkMode', 'false');
+            }
+
+            if (isDarkMode) {
+                enableDarkMode();
+            }
+
+            themeToggle.addEventListener('click', function() {
+                if (document.body.classList.contains('dark-mode')) {
+                    disableDarkMode();
+                } else {
+                    enableDarkMode();
+                }
+            });
+
+            var filePath = "{{ file_path }}";
+            var fileExtension = filePath.split('.').pop().toLowerCase();
+            var languageSelect = document.getElementById('language');
+            var modeMap = {
+                'html': 'text/html',
+                'htm': 'text/html',
+                'css': 'text/css',
+                'js': 'text/javascript',
+                'py': 'text/x-python',
+                'java': 'text/x-java',
+                'c': 'text/x-csrc',
+                'cpp': 'text/x-c++src',
+                'h': 'text/x-c++src',
+                'php': 'text/x-php',
+                'json': 'application/json',
+                'md': 'text/x-markdown'
+            };
+            if (modeMap[fileExtension]) {
+                languageSelect.value = modeMap[fileExtension];
+                editor.setOption('mode', modeMap[fileExtension]);
+            }
+        });
+    </script>
+</body>
+</html>

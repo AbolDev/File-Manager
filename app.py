@@ -1,29 +1,82 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
-from captcha.image import ImageCaptcha
-from datetime import timedelta
-from flask_cors import CORS
-import os
+from datetime import datetime, timedelta
 import json
-import time
-import shutil
+import os
 import random
-import datetime
-import psutil
+import secrets
+import shutil
+import time
 import platform
+import requests
+import random
+import string
+
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
+from flask_cors import CORS
+from captcha.image import ImageCaptcha
+
+import db
+
+import mimetypes
 import patoolib
 import py7zr
 import zipfile
 import tarfile
-import secrets
-# import GPUtil
+import psutil
+
+custom_mime_types = {
+    '.webp': 'image/webp',
+    '.cpp': 'text/x-c++src',
+    '.hpp': 'text/x-c++hdr',
+    '.md': 'text/markdown',
+    '.json': 'application/json',
+    '.yaml': 'application/x-yaml',
+    '.toml': 'application/toml',
+    '.log': 'text/plain',
+    '.bat': 'application/x-msdos-program',
+    '.sh': 'application/x-sh',
+    '.yml': 'application/x-yaml',
+    '.py': 'text/x-python',
+    '.java': 'text/x-java-source',
+    '.class': 'application/java-vm',
+    '.log.tmp': 'text/plain',                   # Log file (temporary)
+    '.ini': 'text/plain',                       # Configuration file
+    '.sys': 'application/octet-stream',         # System file
+    '.cab': 'application/vnd.ms-cab-compressed',# Microsoft Cabinet file
+    '.MSI': 'application/x-msi',                # Microsoft Installer file
+    '.wsb': 'application/octet-stream',         # Windows Sandbox file
+    '.lnk': 'application/x-ms-shortcut',        # Windows Shortcut file
+    '.db': 'application/x-sqlite3',             # Database file (SQLite for example)
+}
+
+for ext, mime in custom_mime_types.items():
+    mimetypes.add_type(mime, ext)
+
+def get_file_mimetype(file_path):
+    try:
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return mime_type if mime_type else 'application/octet-stream'
+    except:
+        return 'application/octet-stream'
+
+def get_current_time_millis(days=0, hours=0, minutes=0):
+    now = datetime.now()
+    future_time = now + timedelta(days=days, hours=hours, minutes=minutes)
+    future_time_millis = int(future_time.timestamp() * 1000)
+    return future_time_millis
+
+def search_in_json(datas, query):
+    matches = []
+    for i in datas:
+        match = all(i.get(key) == value for key, value in query.items())
+        if match:
+            matches.append(i)
+    return matches
 
 app = Flask(__name__)
+
 CORS(app)
 
 app.secret_key = secrets.token_hex(16)
-# app.secret_key = 'supersecretkey'
-
-VERSION = "0.1.4"
 
 def config():
     with open("config.json", "rb") as file:
@@ -31,6 +84,8 @@ def config():
 
         config = json.loads(file_content)
         return config
+
+VERSION = config().get("version")
 
 def get_parent_directory(path):
     if '/' in path:
@@ -56,42 +111,105 @@ def create_directory(full_path, directory_name):
     except Exception as e:
         flash(f'Error creating directory: {str(e)}', 'danger')
 
+def check_version():
+    try:
+        response = requests.get("https://raw.githubusercontent.com/AbolDev/File-Manager/refs/heads/main/config.json")
+        response.raise_for_status()
+        data = response.json()
+        latest_version = data.get("version")
+        
+        if VERSION < latest_version:
+            return True, latest_version
+        else:
+            return False, latest_version
+    except Exception as e:
+        return False, str(e)
+
+def gen_random_id(len_ = 16):
+    characters = string.ascii_uppercase + string.ascii_lowercase + string.digits + string.digits + string.digits
+    random_id = ''.join(random.choices(characters, k=len_))
+    while db.get_file_share(random_id=random_id):
+        characters = string.ascii_uppercase + string.ascii_lowercase + string.digits + string.digits + string.digits
+        random_id = ''.join(random.choices(characters, k=len_))
+    return random_id
+
 @app.context_processor
 def utility_processor():
     return dict(formatSize=formatSize)
 
-def get_file_details(path):
+def get_dir(path):
     details = []
     for entry in os.scandir(path):
         try:
+            if entry.is_file() or entry.is_dir():
+                mod_time = datetime.fromtimestamp(entry.stat().st_mtime)
+                mod_time_timestamp = int(mod_time.timestamp())
+            else:
+                mod_time_timestamp = None
+
             if entry.is_file():
                 size = os.path.getsize(entry.path)
-                mod_time = datetime.datetime.fromtimestamp(entry.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                mimetype = get_file_mimetype(entry.name)
                 details.append({
                     'name': entry.name,
-                    'type': 'File',
+                    'mimetype': mimetype,
+                    'type': mimetype.split("/")[0] if mimetype else None,
+                    'is_dir': False,
                     'size': size,
-                    'mod_time': mod_time
+                    'mod_time_timestamp': mod_time_timestamp,
+                    'mod_time': mod_time.strftime('%Y-%m-%d %H:%M:%S') if mod_time_timestamp else 'Unknown'
                 })
             elif entry.is_dir():
                 subdir_count = sum([1 for _ in os.scandir(entry.path) if _.is_dir()])
                 file_count = sum([1 for _ in os.scandir(entry.path) if _.is_file()])
-                mod_time = datetime.datetime.fromtimestamp(entry.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')
                 details.append({
                     'name': entry.name,
-                    'type': 'Directory',
+                    'is_dir': True,
                     'size': f'{subdir_count} folders, {file_count} files',
-                    'mod_time': mod_time
+                    'mod_time_timestamp': mod_time_timestamp,
+                    'mod_time': mod_time.strftime('%Y-%m-%d %H:%M:%S') if mod_time_timestamp else 'Unknown'
                 })
         except:
             pass
     return details
 
+def get_file_details(file_path):
+    try:
+        if not os.path.isfile(file_path):
+            return None
+
+        size = os.path.getsize(file_path)
+        mod_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+        mod_time_timestamp = int(mod_time.timestamp())
+        mimetype = get_file_mimetype(os.path.basename(file_path))
+
+        return {
+            'name': os.path.basename(file_path),
+            'mimetype': mimetype,
+            'type': mimetype.split("/")[0] if mimetype else None,
+            'is_dir': False,
+            'size': size,
+            'mod_time_timestamp': mod_time_timestamp,
+            'mod_time': mod_time.strftime('%Y-%m-%d %H:%M:%S') if mod_time_timestamp else 'Unknown'
+        }
+    except Exception as e:
+        return None
+
 @app.route('/')
-@app.route('/<path:path>')
+@app.route('/index')
+@app.route('/index/')
+@app.route('/index/<path:path>')
 def index(path=''):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
+
+    last_check_date = session.get('last_check_date')
+    if last_check_date is None or (datetime.utcnow() - datetime.fromisoformat(last_check_date)) > timedelta(weeks=1):
+        is_outdated, version_info = check_version()
+        session['last_check_date'] = datetime.utcnow().isoformat()
+
+        if is_outdated:
+            flash(f"A new version {version_info} is available! Please update.", 'warning')
 
     full_path = os.path.join('/', path.replace('/', os.sep))
 
@@ -100,7 +218,7 @@ def index(path=''):
         parent_path = get_parent_directory(path)
         return redirect(url_for('index', path=parent_path))
 
-    files = get_file_details(full_path)
+    files = get_dir(full_path)
     return render_template('index.html', files=files, current_path=path, version=VERSION)
 
 def random_number_without_1_and_7():
@@ -179,8 +297,17 @@ def file_manager(current_path=''):
         parent_path = get_parent_directory(current_path)
         return redirect(url_for('file_manager', current_path=parent_path))
 
-    files = get_file_details(full_path)
+    files = get_dir(full_path)
     return render_template('file_manager.html', files=files, current_path=current_path, version=VERSION)
+
+@app.route('/show/<path:filename>')
+def show(filename):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    full_path = os.path.join('/', filename.replace('/', os.sep))
+
+    return send_file(full_path, mimetype=get_file_mimetype(full_path), as_attachment=False)
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
@@ -344,7 +471,7 @@ def compression_file():
         return redirect(url_for('login'))
 
     file_or_folder_path = request.form.get('file_or_folder_path', '')
-    compression_type = request.form.get('compression_type', 'zip')  # zip, 7z, rar, tar
+    compression_type = request.form.get('compression_type', 'zip')
 
     if file_or_folder_path:
         full_path = os.path.join('/', file_or_folder_path.replace('/', os.sep))
@@ -375,17 +502,6 @@ def compression_file():
                         archive.write(full_path, os.path.basename(full_path))
                     elif os.path.isdir(full_path):
                         archive.writeall(full_path, os.path.basename(full_path))
-            # elif compression_type == 'rar':
-            #     # patoolib.create_archive(output_path, [full_path])
-            #     # Prepare the list of files/folders to compress
-            #     files_to_archive = []
-            #     if os.path.isfile(full_path):
-            #         files_to_archive.append(full_path)
-            #     elif os.path.isdir(full_path):
-            #         for root, dirs, files in os.walk(full_path):
-            #             for file in files:
-            #                 files_to_archive.append(os.path.join(root, file))
-            #     patoolib.create_archive(output_path, files_to_archive)
             elif compression_type == 'tar':
                 with tarfile.open(output_path, 'w') as tar:
                     if os.path.isfile(full_path):
@@ -406,7 +522,7 @@ def compression_file():
 def get_system_info():
     uname = platform.uname()
     boot_time_timestamp = psutil.boot_time()
-    bt = datetime.datetime.fromtimestamp(boot_time_timestamp)
+    bt = datetime.fromtimestamp(boot_time_timestamp)
     cpufreq = psutil.cpu_freq()
     svmem = psutil.virtual_memory()
     partitions = psutil.disk_partitions()
@@ -426,18 +542,6 @@ def get_system_info():
             "percentage": partition_usage.percent
         })
 
-    # gpus = GPUtil.getGPUs()
-    # gpu_info = []
-    # for gpu in gpus:
-    #     gpu_info.append({
-    #         "id": gpu.id,
-    #         "load": gpu.load * 100,
-    #         "memory_free": gpu.memoryFree * (1024 ** 2),
-    #         "memory_used": gpu.memoryUsed * (1024 ** 2),
-    #         "memory_total": gpu.memoryTotal * (1024 ** 2),
-    #         "temperature": gpu.temperature
-    #     })
-
     data = {
         "system_information": {
             "system": uname.system,
@@ -454,7 +558,6 @@ def get_system_info():
             "max_frequency": cpufreq.max,
             "min_frequency": cpufreq.min,
             "current_frequency": cpufreq.current,
-            # "cpu_usage_per_core": [psutil.cpu_percent(percpu=True, interval=1)],
             "total_cpu_usage": psutil.cpu_percent(interval=0.15),
         },
         "memory_information": {
@@ -464,38 +567,17 @@ def get_system_info():
             "percentage": svmem.percent
         },
         "disk_information": disk_info,
-        # "gpu_information": gpu_info,
     }
 
     return data
 
 def get_network_info():
-    # if_addrs = psutil.net_if_addrs()
-    # net_info = {}
-    # for interface_name, interface_addresses in if_addrs.items():
-    #     addrs = []
-    #     for address in interface_addresses:
-    #         if str(address.family) == 'AddressFamily.AF_INET':
-    #             addrs.append({
-    #                 "ip_address": address.address,
-    #                 "netmask": address.netmask,
-    #                 "broadcast_ip": address.broadcast
-    #             })
-    #         elif str(address.family) == 'AddressFamily.AF_PACKET':
-    #             addrs.append({
-    #                 "mac_address": address.address,
-    #                 "netmask": address.netmask,
-    #                 "broadcast_mac": address.broadcast
-    #             })
-    #     net_info[interface_name] = addrs
-
     net_io = psutil.net_io_counters()
     time.sleep(1)
     new_value = psutil.net_io_counters()
 
     data = {
         "network_information": {
-            # "interfaces": net_info,
             "io_stats": {
                 "total_bytes_sent": net_io.bytes_sent,
                 "total_bytes_received": net_io.bytes_recv,
@@ -535,7 +617,6 @@ def change_username():
 def change_password():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
-        # return jsonify({"error": "Unauthorized"}), 403
 
     new_password = request.form.get('new_password')
 
@@ -556,6 +637,46 @@ def change_password():
             return jsonify({"error": str(e)}), 500
     return jsonify({"error": "Invalid password"}), 400
 
+@app.route('/file_editor/<path:file_path>', methods=['GET', 'POST'])
+def file_editor(file_path):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    full_path = os.path.join('/', file_path.replace('/', os.sep))
+
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        flash('The system cannot find the file specified.', 'danger')
+        parent_path = os.path.dirname(file_path)
+        return redirect(url_for('index', path=parent_path))
+
+    if request.method == 'POST':
+        content = request.form.get('content')
+        content = content.replace("\r\n", "\n")
+
+        try:
+            with open(full_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            flash('File saved successfully.', 'success')
+        except Exception as e:
+            flash(f'Error saving file: {str(e)}', 'danger')
+
+    try:
+        with open(full_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+    except UnicodeDecodeError:
+        try:
+            with open(full_path, 'rb') as file:
+                content = file.read().decode('utf-8', errors='replace')
+            flash('File contains invalid UTF-8 characters but was read successfully as binary.', 'warning')
+        except Exception as e:
+            flash(f'Error reading file: {str(e)}', 'danger')
+            content = ''
+    except Exception as e:
+        flash(f'Error reading file: {str(e)}', 'danger')
+        content = ''
+
+    return render_template('file_editor.html', file_path=file_path, content=content, version=VERSION)
+
 @app.route('/api/system-info', methods=['GET'])
 def system_info():
     if not session.get('logged_in'):
@@ -568,6 +689,64 @@ def network_info():
         return redirect(url_for('login'))
     return jsonify(get_network_info())
 
+@app.route('/api/add-file-share', methods=['POST'])
+def add_file_share():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    path = request.form.get('path')
+    file_name = request.form.get('file_name')
+    shared_url = request.form.get('shared_url', None) if request.form.get('shared_url') else None
+    description = request.form.get('description', None) if request.form.get('description') else None
+    total_allowed_requests_per_ip = request.form.get('total_allowed_requests_per_ip', 0) if request.form.get('total_allowed_requests_per_ip') else 0
+    total_allowed_requests = request.form.get('total_allowed_requests', 0) if request.form.get('total_allowed_requests') else 0
+    total_allowed_download_and_view_per_ip = request.form.get('total_allowed_download_and_view_per_ip', 0) if request.form.get('total_allowed_download_and_view_per_ip') else 0
+    total_allowed_download_and_view = request.form.get('total_allowed_download_and_view', 0) if request.form.get('total_allowed_download_and_view') else 0
+    name = request.form.get('name', None) if request.form.get('name') else None
+    auto_download = request.form.get('auto_download', False) if request.form.get('auto_download') else False
+
+    auto_download = True if auto_download or auto_download == 'on' else False
+
+    if path:
+        if not db.get_file_share(shared_url=shared_url):
+            full_path = os.path.join('/', path.replace('/', os.sep), file_name)
+            is_dir = True if os.path.isdir(full_path) else False
+            random_id = gen_random_id()
+
+            if not name:
+                name = random_id
+
+            password = None
+
+            db.add_file_share(
+                path, file_name, shared_url, is_dir, description,
+                total_allowed_requests_per_ip, total_allowed_requests,
+                total_allowed_download_and_view_per_ip, total_allowed_download_and_view,
+                name, random_id, password, auto_download
+            )
+
+            data = {
+                'status': True,
+                'results': {
+                    'random_id': random_id,
+                    'shared_url': f'{request.host_url}{shared_url}' if shared_url else None,
+                    'file_url': f'{request.host_url}{random_id}',
+                    'url': f'{request.host_url}{shared_url}' if shared_url else f'{request.host_url}{random_id}'
+                }
+            }
+        else:
+            data = {
+                'status': False,
+                'error': 'shared_url already exist'
+            }
+    else:
+        data = {
+            'status': False,
+            'error': 'enter file_or_folder_path'
+        }
+
+    return jsonify(data)
+
 @app.route('/system-info')
 def system_info_page():
     if not session.get('logged_in'):
@@ -579,6 +758,74 @@ def settings_page():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     return render_template('settings.html')
+
+@app.route('/show_file_share/<string:random_id_or_shared_url>')
+@app.route('/show_file_share/<string:random_id_or_shared_url>/')
+@app.route('/show_file_share/<string:random_id_or_shared_url>/<path:path2>')
+def show_file_share(random_id_or_shared_url='', path2=''):
+    file_share = db.get_file_share(random_id=random_id_or_shared_url, shared_url=random_id_or_shared_url)
+
+    if file_share:
+        if not file_share.total_allowed_download_and_view or file_share.total_allowed_download_and_view > file_share.total_download_and_view:
+            if not file_share.total_allowed_download_and_view_per_ip or file_share.total_allowed_download_and_view_per_ip > len(search_in_json(file_share.download_and_view_list, {'ip': request.remote_addr})):
+                if file_share.is_dir:
+                    full_path = os.path.join('/', file_share.path.replace('/', os.sep), file_share.file_name, path2)
+                else:
+                    full_path = os.path.join('/', file_share.path.replace('/', os.sep), path2).strip('\\').replace('\\\\', '\\').replace('//', '/').replace('/', os.sep)
+                full_path = os.path.normpath(full_path)
+
+                db.update_download_list_to_file_share(file_share.random_id, {'ip': request.remote_addr, 'time': get_current_time_millis()})
+                return send_file(full_path, mimetype=get_file_mimetype(full_path), as_attachment=False)
+
+    return '', 403
+
+@app.route('/download_file_share/<string:random_id_or_shared_url>')
+@app.route('/download_file_share/<string:random_id_or_shared_url>/')
+@app.route('/download_file_share/<string:random_id_or_shared_url>/<path:path2>')
+def download_file_share(random_id_or_shared_url='', path2=''):
+    file_share = db.get_file_share(random_id=random_id_or_shared_url, shared_url=random_id_or_shared_url)
+
+    if file_share:
+        if not file_share.total_allowed_download_and_view or file_share.total_allowed_download_and_view > file_share.total_download_and_view:
+            if not file_share.total_allowed_download_and_view_per_ip or file_share.total_allowed_download_and_view_per_ip > len(search_in_json(file_share.download_and_view_list, {'ip': request.remote_addr})):
+                if file_share.is_dir:
+                    full_path = os.path.join('/', file_share.path.replace('/', os.sep), file_share.file_name, path2)
+                else:
+                    full_path = os.path.join('/', file_share.path.replace('/', os.sep), path2).strip('\\').replace('\\\\', '\\').replace('//', '/').replace('/', os.sep)
+                full_path = os.path.normpath(full_path)
+
+                db.update_download_list_to_file_share(file_share.random_id, {'ip': request.remote_addr, 'time': get_current_time_millis()})
+                return send_file(full_path, as_attachment=True)
+
+    return '', 403
+
+@app.route('/<string:random_id_or_shared_url>')
+@app.route('/<string:random_id_or_shared_url>/')
+@app.route('/<string:random_id_or_shared_url>/<path:path2>')
+def file_share(random_id_or_shared_url='', path2=''):
+    file_share = db.get_file_share(random_id=random_id_or_shared_url, shared_url=random_id_or_shared_url)
+
+    if file_share:
+        if not file_share.total_allowed_requests or file_share.total_allowed_requests > file_share.total_requests_made:
+            if not file_share.total_allowed_requests_per_ip or file_share.total_allowed_requests_per_ip > len(search_in_json(file_share.request_list, {'ip': request.remote_addr})):
+                full_path = os.path.join('/', file_share.path, file_share.file_name, path2).strip('\\').replace('\\\\', '\\').replace('//', '/').replace('/', os.sep)
+                full_path = os.path.normpath(full_path)
+
+                if file_share.is_dir:
+                    if not os.path.exists(full_path):
+                        flash('The system cannot find the path specified.', 'danger')
+
+                    files = get_dir(full_path)
+                else:
+                    if file_share.auto_download:
+                        return send_file(full_path, as_attachment=True)
+                    else:
+                        files = [get_file_details(full_path)]
+
+                db.update_request_list_to_file_share(file_share.random_id, {'ip': request.remote_addr, 'time': get_current_time_millis()})
+                return render_template('file_share.html', files=files, random_id_or_shared_url=random_id_or_shared_url, path2=path2, version=VERSION, name=file_share.name)
+
+    return '', 403
 
 if __name__ == '__main__':
     config_ = config()
