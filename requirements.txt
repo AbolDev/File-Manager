@@ -4,5 +4,6 @@ captcha
 Werkzeug
 patool
 py7zr
+sqlalchemy
 db-sqlite3
 requests
