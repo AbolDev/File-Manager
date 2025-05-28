@@ -2,12 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="robots" content="noindex, nofollow">
     <title>File Uploader</title>
-
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
-
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/file_manager.style.css') }}">
@@ -23,7 +21,6 @@
                             <i class="fas fa-moon"></i> Toggle Dark Mode
                         </button>
                     </div>
-                    
                     <div class="card-body">
                         {% with messages = get_flashed_messages(with_categories=true) %}
                             {% if messages %}
@@ -32,23 +29,21 @@
                                         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                                             {{ message }}
                                             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                                <span aria-hidden="true">&times;</span>
+                                                <span aria-hidden="true">×</span>
                                             </button>
                                         </div>
                                     {% endfor %}
                                 </div>
                             {% endif %}
                         {% endwith %}
-
                         <a href="{{ url_for('index', path=current_path) }}" class="btn btn-secondary">Back</a>
-
                         <h5 class="mt-3">Current Path: /{{ current_path }}</h5>
-
+                        
                         <div class="card mb-3">
-                            <div class="card-header">Upload File</div>
+                            <div class="card-header">Upload File or Folder</div>
                             <div class="card-body">
                                 <div id="dropZone" class="border border-primary rounded p-3 mb-3 text-center">
-                                    Drag & Drop files here or <strong>click to select</strong>
+                                    Drag & Drop files or folders here or <strong>click to select</strong>
                                 </div>
                                 <form method="POST" enctype="multipart/form-data" id="uploadForm">
                                     <div class="form-group">
@@ -60,6 +55,20 @@
                         </div>
 
                         <div class="card mb-3">
+                            <div class="card-header">Create File</div>
+                            <div class="card-body">
+                                <form id="createFileForm" action="{{ url_for('create_file_route') }}" method="POST">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" name="file_name" placeholder="Enter file name">
+                                        <input type="hidden" name="current_path" value="{{ current_path }}">
+                                        <div class="input-group-append">
+                                            <button type="submit" class="btn btn-primary">Create File</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="card mb-3">
                             <div class="card-header">Create Directory</div>
                             <div class="card-body">
                                 <form id="createDirectoryForm" action="{{ url_for('create_directory_route') }}" method="POST">
@@ -67,13 +76,35 @@
                                         <input type="text" class="form-control" name="directory_name" placeholder="Enter directory name">
                                         <input type="hidden" name="current_path" value="{{ current_path }}">
                                         <div class="input-group-append">
-                                            <button type="submit" class="btn btn-success">Create Directory</button>
+                                            <button type="submit" class="btn btn-primary">Create Directory</button>
                                         </div>
                                     </div>
                                 </form>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal to confirm file replacement -->
+    <div class="modal fade" id="replaceModal" tabindex="-1" role="dialog" aria-labelledby="replaceModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="replaceModalLabel">Duplicate File Found</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>The file "<span id="fileName"></span>" already exists in "<span id="filePath"></span>". Do you want to replace it?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="skipButton">Skip</button>
+                    <button type="button" class="btn btn-primary" id="replaceButton">Replace</button>
+                    <button type="button" class="btn btn-warning" id="replaceAllButton">Replace All</button>
                 </div>
             </div>
         </div>
@@ -95,26 +126,22 @@
         document.addEventListener('DOMContentLoaded', function() {
             var themeToggle = document.getElementById('theme-toggle');
             var isDarkMode = localStorage.getItem('darkMode') === 'true';
-
             if (isDarkMode) {
                 document.body.classList.add('dark-mode');
                 themeToggle.innerHTML = '<i class="fas fa-sun"></i> Toggle Light Mode';
             } else {
                 themeToggle.innerHTML = '<i class="fas fa-moon"></i> Toggle Dark Mode';
             }
-
             function enableDarkMode() {
                 document.body.classList.add('dark-mode');
                 themeToggle.innerHTML = '<i class="fas fa-sun"></i> Toggle Light Mode';
                 localStorage.setItem('darkMode', 'true');
             }
-
             function disableDarkMode() {
                 document.body.classList.remove('dark-mode');
                 themeToggle.innerHTML = '<i class="fas fa-moon"></i> Toggle Dark Mode';
                 localStorage.setItem('darkMode', 'false');
             }
-
             themeToggle.addEventListener('click', function() {
                 if (document.body.classList.contains('dark-mode')) {
                     disableDarkMode();
@@ -123,14 +150,22 @@
                 }
             });
         });
+
         $(document).ready(function() {
             var dropZone = $('#dropZone');
             var fileInput = $('#fileInput');
+            var uploadedFiles = [];
+            var filesToUpload = [];
+            var replaceAll = false;
+            var currentFileIndex = 0;
+            var currentExistingFiles = [];
 
+            // Click on the drop zone to select the file
             dropZone.on('click', function() {
                 fileInput.click();
             });
 
+            // Drag and drop events
             dropZone.on('dragover', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -147,25 +182,139 @@
                 e.preventDefault();
                 e.stopPropagation();
                 dropZone.removeClass('dragover');
+                
+                var items = e.originalEvent.dataTransfer.items;
+                var files = [];
+                var promises = [];
 
-                var files = e.originalEvent.dataTransfer.files;
-                fileInput[0].files = files;
-                handleFiles(files);
-                uploadFiles(files, "{{ current_path }}", 0);
+                function processEntry(entry, path = '') {
+                    return new Promise((resolve) => {
+                        if (entry.isFile) {
+                            entry.file(function(file) {
+                                file.relativePath = path ? path + '/' + file.name : file.name;
+                                files.push(file);
+                                resolve();
+                            });
+                        } else if (entry.isDirectory) {
+                            var dirReader = entry.createReader();
+                            dirReader.readEntries(function(entries) {
+                                var dirPromises = entries.map(entry => 
+                                    processEntry(entry, path ? path + '/' + entry.name : entry.name)
+                                );
+                                Promise.all(dirPromises).then(resolve);
+                            });
+                        } else {
+                            resolve();
+                        }
+                    });
+                }
+
+                for (var i = 0; i < items.length; i++) {
+                    var entry = items[i].webkitGetAsEntry();
+                    if (entry) {
+                        promises.push(processEntry(entry));
+                    }
+                }
+
+                Promise.all(promises).then(() => {
+                    if (files.length > 0) {
+                        checkFilesBeforeUpload(files);
+                    }
+                });
             });
 
+            // Select files
             fileInput.on('change', function(e) {
-                var files = e.target.files;
-                handleFiles(files);
-                uploadFiles(files, "{{ current_path }}", 0);
+                var files = Array.from(e.target.files);
+                files.forEach(file => {
+                    file.relativePath = file.webkitRelativePath || file.name;
+                });
+                checkFilesBeforeUpload(files);
             });
 
-            function handleFiles(files) {
+            function checkFilesBeforeUpload(files) {
+                var filePaths = files.map(file => file.relativePath);
+                $.ajax({
+                    type: 'POST',
+                    url: '{{ url_for("file_manager_check_files", current_path=current_path) }}',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ file_paths: filePaths }),
+                    success: function(response) {
+                        if (response.success) {
+                            filesToUpload = files;
+                            currentExistingFiles = response.existing_files; // Save duplicate files
+                            handleFiles(files, response.existing_files);
+                            if (response.existing_files.length > 0) {
+                                showReplaceModal(0, response.existing_files);
+                            } else {
+                                uploadFiles(files, "{{ current_path }}", 0);
+                            }
+                        } else {
+                            $('#flash-messages').html(`<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                Error checking files: ${response.error}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">×</span>
+                                </button>
+                            </div>`);
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#flash-messages').html(`<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            Error checking files: ${xhr.responseJSON?.error || 'Unknown error'}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">×</span>
+                            </button>
+                        </div>`);
+                    }
+                });
+            }
+
+            function showReplaceModal(index, existingFilesList) {
+                if (index >= existingFilesList.length || replaceAll) {
+                    uploadFiles(filesToUpload, "{{ current_path }}", 0);
+                    return;
+                }
+                currentFileIndex = index;
+                var filePath = existingFilesList[index];
+                $('#fileName').text(filePath.split('/').pop());
+                $('#filePath').text(filePath);
+                $('#replaceModal').modal('show');
+            }
+
+            $('#replaceButton').on('click', function() {
+                $('#replaceModal').modal('hide');
+                uploadSingleFile(filesToUpload[currentFileIndex], "{{ current_path }}", true);
+                showReplaceModal(currentFileIndex + 1, currentExistingFiles);
+            });
+
+            $('#replaceAllButton').on('click', function() {
+                replaceAll = true;
+                $('#replaceModal').modal('hide');
+                uploadFiles(filesToUpload, "{{ current_path }}", 0);
+            });
+
+            $('#skipButton').on('click', function() {
+                $('#replaceModal').modal('hide');
+                showReplaceModal(currentFileIndex + 1, currentExistingFiles);
+            });
+
+            $('#replaceModal').on('hidden.bs.modal', function () {
+                currentFileIndex = 0;
+                filesToUpload = [];
+                replaceAll = false;
+                currentExistingFiles = []; // Reset duplicate files
+                $('#progressBars').html(''); // Clear progress bars
+            });
+
+            function handleFiles(files, existingFiles) {
                 $('#progressBars').html('');
+                uploadedFiles = [];
+                
                 for (var i = 0; i < files.length; i++) {
+                    var isExisting = existingFiles.includes(files[i].relativePath);
                     var progressBarHtml = 
-                        '<div class="mb-3">' +
-                        '<p class="mb-1"><strong>Uploading: ' + files[i].name + '</strong></p>' +
+                        '<div class="mb-3" data-file-index="' + i + '">' +
+                        '<p class="mb-1"><strong>' + (isExisting ? '[Exists] ' : '') + 'Uploading: ' + (files[i].relativePath || files[i].name) + '</strong></p>' +
                         '<div class="progress">' +
                         '<div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>' +
                         '</div>' +
@@ -174,19 +323,21 @@
                 }
             }
 
-            function uploadFiles(files, path, index) {
-                if (index >= files.length) {
-                    return;
-                }
-
+            function uploadSingleFile(file, path, forceReplace) {
                 var formData = new FormData();
-                formData.append('file', files[index]);
-
+                formData.append('file', file);
+                formData.append('relative_path', file.relativePath || file.name);
+                if (forceReplace) {
+                    formData.append('replace', 'true');
+                }
+                
+                var index = filesToUpload.findIndex(f => f.relativePath === file.relativePath);
                 var progressBar = $('#progressBars .progress-bar').eq(index);
+                var fileContainer = $('[data-file-index="' + index + '"]');
 
                 $.ajax({
                     type: 'POST',
-                    url: '{{ url_for("file_manager", current_path=current_path) }}',
+                    url: '{{ url_for("file_manager", current_path=path) }}',
                     data: formData,
                     contentType: false,
                     processData: false,
@@ -202,21 +353,54 @@
                         return xhr;
                     },
                     success: function(response) {
-                        console.log('File uploaded successfully:', files[index].name);
+                        console.log('File uploaded successfully:', file.relativePath || file.name);
                         progressBar.removeClass('progress-bar-animated').addClass('bg-success');
-                        uploadFiles(files, path, index + 1);
+                        uploadedFiles.push({
+                            name: file.relativePath || file.name,
+                            size: file.size,
+                            type: file.type || 'Unknown'
+                        });
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error uploading file:', files[index].name, error);
+                        console.error('Error uploading file:', file.relativePath || file.name, error);
                         progressBar.removeClass('progress-bar-animated').addClass('bg-danger').html('Error');
-                        uploadFiles(files, path, index + 1);
-                    },
-                    complete: function() {
-                        if (index === files.length - 1) {
-                            $('input[type=file]').val('');
-                        }
                     }
                 });
+            }
+
+            function uploadFiles(files, path, index) {
+                if (index >= files.length) {
+                    fileInput.val('');
+                    $.ajax({
+                        type: 'POST',
+                        url: '{{ url_for("file_manager", current_path=path) }}',
+                        data: { complete: true },
+                        success: function(response) {
+                            console.log('Upload completed');
+                        }
+                    });
+                    replaceAll = false;
+                    filesToUpload = [];
+                    currentFileIndex = 0; // Reset Index
+                    return;
+                }
+
+                var file = files[index];
+                if (replaceAll) {
+                    uploadSingleFile(file, path, true);
+                    uploadFiles(files, path, index + 1);
+                } else {
+                    uploadSingleFile(file, path, false);
+                    uploadFiles(files, path, index + 1);
+                }
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                var k = 1024;
+                var sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                var i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
         });
     </script>

@@ -7,3 +7,6 @@ py7zr
 sqlalchemy
 db-sqlite3
 requests
+flask-socketio
+gevent
+gevent-websocket

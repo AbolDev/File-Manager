@@ -11,6 +11,13 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/index.style.css') }}">
+
+    <style>
+        /* Hide buttons by default */
+        #delete-selected-btn, #copy-selected-btn, #cut-selected-btn, #download-selected-btn {
+            display: none;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
@@ -42,6 +49,7 @@
 
                         <a href="{{ url_for('file_manager', current_path=current_path) }}" class="btn btn-primary mt-1">Upload File</a>
                         <a href="{{ url_for('system_info_page') }}" class="btn btn-primary mt-1">System info</a>
+                        <a href="{{ url_for('terminal') }}" class="btn btn-primary mt-1">Terminal</a>
                         <a href="{{ url_for('index', path=current_path) }}" class="btn btn-primary mt-1">Refresh</a>
                         <a href="{{ url_for('logout') }}" class="btn btn-danger mt-1" onclick="return confirm('Are you sure you want to logout?')">Logout</a>
                         <a href="{{ url_for('settings_page') }}" class="btn btn-secondary mt-1">
@@ -56,14 +64,23 @@
                             {% endif %}
     
                             <div class="input-group ml-2" style="width: 110px;">
-                                <input type="text" class="form-control" id="filter-input" placeholder="Filter files...">
+                                <input type="text" class="form-control" id="filter-input" placeholder="Filter files..." title="Filter files by name">
                             </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <button id="delete-selected-btn" class="btn btn-danger mt-1" disabled>Delete Selected</button>
+                            <button id="copy-selected-btn" class="btn btn-secondary mt-1" disabled>Copy Selected</button>
+                            <button id="cut-selected-btn" class="btn btn-secondary mt-1" disabled>Cut Selected</button>
+                            <button id="download-selected-btn" class="btn btn-primary mt-1" disabled>Download Selected</button>
+                            <span id="selected-count" class="ml-3" style="display: none;">0 items selected</span>
                         </div>
 
                         <div class="table-responsive">
                             <table id="file-table" class="table table-striped">
                                 <thead>
                                     <tr>
+                                        <th><input type="checkbox" id="select-all" title="Select all visible files"></th>
                                         <th class="sort" data-sort="name">Name <span class="arrow"></span></th>
                                         <th class="sort" data-sort="type">Type <span class="arrow"></span></th>
                                         <th class="sort" data-sort="size">Size <span class="arrow"></span></th>
@@ -74,6 +91,7 @@
                                 <tbody>
                                     {% for file in files %}
                                         <tr>
+                                            <td><input type="checkbox" class="select-file" data-filepath="{{ current_path + '/' + file.name }}" title="Select this file"></td>
                                             <td>
                                                 {% if file.is_dir %}
                                                     <a href="{{ url_for('index', path=(current_path + '/' + file.name).strip('/')) }}" title="{{ file.name }}">{{ file.name }}/</a>
@@ -92,22 +110,22 @@
                                             <td data-modtime="{{ file.mod_time_timestamp }}" class="last-modified" title="">{{ file.mod_time }}</td>
                                             <td>
                                                 <div class="dropdown">
-                                                    <button class="btn btn-secondary dropdown-toggle more-btn" type="button" id="dropdownMenuButton_{{ loop.index }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                                        &#8286;
+                                                    <button class="btn btn-secondary dropdown-toggle more-btn" type="button" id="dropdownMenuButton_{{ loop.index }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Click to perform actions on this file">
+                                                        ⁞
                                                     </button>
                                                     <div class="dropdown-menu" aria-labelledby="dropdownMenuButton_{{ loop.index }}">
                                                         {% if file.is_dir %}
-                                                            <button class="dropdown-item delete-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Delete</button>
+                                                            <button class="dropdown-item delete-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="Directory">Delete</button>
                                                             <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="Directory">Rename</button>
-                                                            <button class="dropdown-item copy-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Copy</button>
-                                                            <button class="dropdown-item cut-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Cut</button>
+                                                            <button class="dropdown-item copy-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="Directory">Copy</button>
+                                                            <button class="dropdown-item cut-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="Directory">Cut</button>
                                                             <button class="dropdown-item compress-dir-btn" data-dirpath="{{ current_path + '/' + file.name }}" data-type="Directory">Compress</button>
                                                             <a href="#" class="dropdown-item share-btn" data-file-path="{{ current_path }}" data-file-name="{{ file.name }}">Share</a>
                                                         {% else %}
-                                                            <button class="dropdown-item delete-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Delete</button>
+                                                            <button class="dropdown-item delete-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Delete</button>
                                                             <button class="dropdown-item rename-btn" data-name="{{ file.name }}" data-type="File">Rename</button>
-                                                            <button class="dropdown-item copy-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Copy</button>
-                                                            <button class="dropdown-item cut-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Cut</button>
+                                                            <button class="dropdown-item copy-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Copy</button>
+                                                            <button class="dropdown-item cut-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Cut</button>
                                                             {% if file.name.endswith('.zip') or file.name.endswith('.7z') or file.name.endswith('.rar') or file.name.endswith('.tar') %}
                                                                 <button class="dropdown-item extract-file-btn" data-filepath="{{ current_path + '/' + file.name }}" data-type="File">Extract</button>
                                                             {% else %}
@@ -311,38 +329,6 @@
                 return parseSize(size);
             }
 
-            $('#file-table').on('click', '.delete-file-btn', function() {
-                var filepath = $(this).data('filepath');
-                if (confirm('Are you sure you want to delete the file: ' + filepath + '?')) {
-                    $.ajax({
-                        url: '/delete_file/' + encodeURIComponent(filepath),
-                        type: 'DELETE',
-                        success: function(response) {
-                            location.reload();
-                        },
-                        error: function(xhr, status, error) {
-                            alert('Error deleting file: ' + error);
-                        }
-                    });
-                }
-            });
-
-            $('#file-table').on('click', '.delete-dir-btn', function() {
-                var dirpath = $(this).data('dirpath');
-                if (confirm('Are you sure you want to delete the directory: ' + dirpath + '?')) {
-                    $.ajax({
-                        url: '/delete_directory/' + encodeURIComponent(dirpath),
-                        type: 'DELETE',
-                        success: function(response) {
-                            location.reload();
-                        },
-                        error: function(xhr, status, error) {
-                            alert('Error deleting directory: ' + error);
-                        }
-                    });
-                }
-            });
-
             $('#file-table').on('click', '.rename-btn', function() {
                 var itemName = $(this).data('name');
                 var itemType = $(this).data('type');
@@ -351,6 +337,7 @@
                 if (newName && newName !== itemName) {
                     var url = '/rename';
                     var currentPath = "{{ current_path }}";
+                    var $row = $(this).closest('tr'); // Table row
                     
                     $.ajax({
                         url: url,
@@ -361,10 +348,50 @@
                             new_name: newName
                         },
                         success: function(response) {
-                            location.reload();
+                            if (response.success) {
+                                // Update name in table
+                                var isDir = $row.find('td:eq(2)').text() === 'Directory';
+                                var newFilePath = currentPath + '/' + response.new_name;
+                                $row.find('td:eq(1) a').text(response.new_name + (isDir ? '/' : ''));
+                                $row.find('td:eq(1) a').attr('href', isDir ? 
+                                    "{{ url_for('index', path='') }}" + newFilePath.strip('/') : 
+                                    "{{ url_for('download_file', filename='') }}" + newFilePath.strip('/'));
+                                $row.find('.select-file').data('filepath', newFilePath);
+                                $row.find('.delete-btn, .copy-btn, .cut-btn, .compress-file-btn, .compress-dir-btn, .extract-file-btn')
+                                    .data('filepath', newFilePath);
+                                $row.find('.rename-btn').data('name', response.new_name);
+                                $row.find('.share-btn').data('file-name', response.new_name);
+
+                                // Show success message
+                                $('#flash-messages').html(`
+                                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                        ${response.message}
+                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                            <span aria-hidden="true">×</span>
+                                        </button>
+                                    </div>`);
+                                setTimeout(() => $('.alert').alert('close'), 7000);
+                            } else {
+                                // Display error message
+                                $('#flash-messages').html(`
+                                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                        Error renaming ${itemType.toLowerCase()}: ${response.error}
+                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                            <span aria-hidden="true">×</span>
+                                        </button>
+                                    </div>`);
+                                setTimeout(() => $('.alert').alert('close'), 7000);
+                            }
                         },
                         error: function(xhr, status, error) {
-                            alert('Error renaming ' + itemType.toLowerCase() + ': ' + error);
+                            $('#flash-messages').html(`
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    Error renaming ${itemType.toLowerCase()}: ${xhr.responseJSON?.error || error}
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                        <span aria-hidden="true">×</span>
+                                    </button>
+                                </div>`);
+                            setTimeout(() => $('.alert').alert('close'), 7000);
                         }
                     });
                 }
@@ -437,126 +464,6 @@
 
             $(document).click(function() {
                 $('.dropdown-menu').hide();
-            });
-
-            $('#filter-input').on('keyup', function() {
-                var filterTerm = $(this).val().toLowerCase();
-                $('#file-table tbody tr').each(function() {
-                    var fileName = $(this).find('td:first-child a').text().toLowerCase();
-                    if (fileName.includes(filterTerm)) {
-                        $(this).show();
-                    } else {
-                        $(this).hide();
-                    }
-                });
-            });
-
-            $('#file-table').on('click', '.copy-file-btn', function() {
-                var filepath = $(this).data('filepath');
-                var new_path = prompt('Enter the new path for the file:');
-
-                if (new_path && new_path !== filepath) {
-                    $.ajax({
-                        url: '/copy',
-                        type: 'POST',
-                        data: {
-                            file_path: filepath,
-                            new_path: new_path
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                alert('File copied successfully!');
-                                location.reload();
-                            } else {
-                                alert('Error: ' + response.error);
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            alert('Error copying file: ' + error);
-                        }
-                    });
-                }
-            });
-
-            $('#file-table').on('click', '.copy-dir-btn', function() {
-                var dirpath = $(this).data('dirpath');
-                var new_path = prompt('Enter the new path for the directory:');
-
-                if (new_path && new_path !== dirpath) {
-                    $.ajax({
-                        url: '/copy',
-                        type: 'POST',
-                        data: {
-                            file_path: dirpath,
-                            new_path: new_path
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                alert('Directory copied successfully!');
-                                location.reload();
-                            } else {
-                                alert('Error: ' + response.error);
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            alert('Error copying directory: ' + error);
-                        }
-                    });
-                }
-            });
-
-            $('#file-table').on('click', '.cut-file-btn', function() {
-                var filepath = $(this).data('filepath');
-                var new_path = prompt('Enter the new path for the file:');
-
-                if (new_path && new_path !== filepath) {
-                    $.ajax({
-                        url: '/cut',
-                        type: 'POST',
-                        data: {
-                            file_path: filepath,
-                            new_path: new_path
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                alert('File cut successfully!');
-                                location.reload();
-                            } else {
-                                alert('Error: ' + response.error);
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            alert('Error cutting file: ' + error);
-                        }
-                    });
-                }
-            });
-
-            $('#file-table').on('click', '.cut-dir-btn', function() {
-                var dirpath = $(this).data('dirpath');
-                var new_path = prompt('Enter the new path for the directory:');
-
-                if (new_path && new_path !== dirpath) {
-                    $.ajax({
-                        url: '/cut',
-                        type: 'POST',
-                        data: {
-                            file_path: dirpath,
-                            new_path: new_path
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                alert('Directory cut successfully!');
-                                location.reload();
-                            } else {
-                                alert('Error: ' + response.error);
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            alert('Error cutting directory: ' + error);
-                        }
-                    });
-                }
             });
         });
 

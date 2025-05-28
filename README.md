@@ -62,6 +62,7 @@ For the best experience, it is recommended to use one of the following operating
 - AlmaLinux 9+
 - Rocky Linux 9+
 - Oracle Linux 8+
+- Windows 10+
 
 ## Notes
 

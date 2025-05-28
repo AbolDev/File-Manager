@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Terminal</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.style.css') }}">
+</head>
+<body>
+    <div class="terminal-container">
+        <div class="terminal-content" id="terminal-content"></div>
+    </div>
+    <!-- Virtual toolbar for mobile -->
+    <div class="mobile-toolbar">
+        <button class="toolbar-toggle">⌨</button>
+        <div class="toolbar-buttons" style="display: none;">
+            <button data-key="Tab">Tab</button>
+            <button data-key="ArrowUp">↑</button>
+            <button data-key="ArrowDown">↓</button>
+            <button data-key="ArrowLeft">←</button>
+            <button data-key="ArrowRight">→</button>
+            <button data-key="Control">Ctrl</button>
+            <button data-key="Escape">Esc</button>
+            <button data-key="Enter">⏎</button>
+            <button data-key="Backspace">⌫</button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/terminal.script.js') }}"></script>
+    <script>
+        const socket = io();
+        let commandHistory = [];
+        let historyIndex = -1;
+        let currentPrompt = '';
+
+        function createInputLine(preserveInput = false) {
+            const contentDiv = document.getElementById('terminal-content');
+            const oldInputLine = document.querySelector('.terminal-input-line');
+            let currentInputValue = '';
+            if (preserveInput && oldInputLine) {
+                const oldInput = oldInputLine.querySelector('.command-input');
+                currentInputValue = oldInput ? oldInput.value : '';
+            }
+            if (oldInputLine) {
+                oldInputLine.remove();
+            }
+            const inputLine = document.createElement('div');
+            inputLine.className = 'terminal-input-line';
+            inputLine.innerHTML = `
+                <span class="prompt">${currentPrompt}</span>
+                <input type="text" class="command-input" autocomplete="off" autofocus value="${currentInputValue}">
+            `;
+            contentDiv.appendChild(inputLine);
+            const input = inputLine.querySelector('.command-input');
+            input.focus();
+            if (currentInputValue) {
+                input.setSelectionRange(currentInputValue.length, currentInputValue.length);
+            }
+            contentDiv.scrollTop = contentDiv.scrollHeight;
+            return input;
+        }
+
+        socket.on('connect', () => {
+            console.log('Connected to WebSocket server');
+            socket.emit('get_prompt');
+        });
+
+        socket.on('prompt', (data) => {
+            currentPrompt = data.prompt;
+            createInputLine();
+        });
+
+        socket.on('command_output', (data) => {
+            const contentDiv = document.getElementById('terminal-content');
+            const outputDiv = document.createElement('div');
+            outputDiv.className = 'terminal-output';
+            outputDiv.textContent = data.output;
+            contentDiv.appendChild(outputDiv);
+            createInputLine();
+        });
+
+        socket.on('autocomplete', (data) => {
+            const input = document.querySelector('.command-input');
+            if (data.suggestions && data.suggestions.length === 1) {
+                const parts = input.value.split(' ');
+                parts[parts.length - 1] = data.suggestions[0];
+                input.value = parts.join(' ');
+            } else if (data.suggestions && data.suggestions.length > 1) {
+                const contentDiv = document.getElementById('terminal-content');
+                const outputDiv = document.createElement('div');
+                outputDiv.className = 'terminal-output';
+                outputDiv.textContent = data.suggestions.join('  ');
+                contentDiv.appendChild(outputDiv);
+                createInputLine(true);
+            }
+        });
+
+        function sendCommand(input) {
+            const command = input.value.trim();
+            if (command) {
+                const contentDiv = document.getElementById('terminal-content');
+                const prompt = currentPrompt;
+                const commandDiv = document.createElement('div');
+                commandDiv.className = 'terminal-output';
+                commandDiv.textContent = `${prompt}${command}`;
+                contentDiv.appendChild(commandDiv);
+                if (command === 'clear' || command === 'cls') {
+                    contentDiv.innerHTML = '';
+                    createInputLine();
+                } else {
+                    socket.emit('execute_command', { command: command });
+                }
+                commandHistory.unshift(command);
+                historyIndex = -1;
+                input.value = '';
+                contentDiv.scrollTop = contentDiv.scrollHeight;
+            }
+        }
+
+        function simulateKeyPress(key) {
+            const input = document.querySelector('.command-input');
+            if (!input) return;
+            const event = new KeyboardEvent('keydown', { key });
+            document.getElementById('terminal-content').dispatchEvent(event);
+        }
+
+        document.getElementById('terminal-content').addEventListener('keydown', (e) => {
+            const input = document.querySelector('.command-input');
+            if (!input) return;
+            if (e.key === 'Enter') {
+                sendCommand(input);
+            } else if (e.key === 'ArrowUp') {
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    input.value = commandHistory[historyIndex];
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowDown') {
+                if (historyIndex > -1) {
+                    historyIndex--;
+                    input.value = historyIndex === -1 ? '' : commandHistory[historyIndex];
+                }
+                e.preventDefault();
+            } else if (e.key === 'Tab') {
+                const value = input.value.trim();
+                if (value) {
+                    const parts = value.split(' ');
+                    const lastPart = parts[parts.length - 1];
+                    socket.emit('autocomplete', { prefix: lastPart });
+                }
+                e.preventDefault();
+            }
+        });
+
+        // Track with right-click or long-touch
+        document.getElementById('terminal-content').addEventListener('contextmenu', async (e) => {
+            e.preventDefault();
+            const input = document.querySelector('.command-input');
+            if (!input) return;
+            try {
+                const text = await navigator.clipboard.readText();
+                input.value += text;
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            } catch (err) {
+                console.error('Failed to paste:', err);
+            }
+        });
+
+        document.querySelector('.terminal-container').addEventListener('click', () => {
+            const input = document.querySelector('.command-input');
+            if (input) input.focus();
+        });
+
+        // Adjusting terminal height and toolbar position with mobile keyboard
+        function adjustTerminalHeight() {
+            const terminalContainer = document.querySelector('.terminal-container');
+            const mobileToolbar = document.querySelector('.mobile-toolbar');
+            if (window.visualViewport) {
+                // Terminal height adjustment
+                terminalContainer.style.height = `${window.visualViewport.height - 20}px`;
+                // Adjust toolbar position (10px above keyboard)
+                mobileToolbar.style.bottom = `${window.innerHeight - window.visualViewport.height + 10}px`;
+            }
+            const contentDiv = document.getElementById('terminal-content');
+            contentDiv.scrollTop = contentDiv.scrollHeight;
+        }
+
+        window.visualViewport?.addEventListener('resize', adjustTerminalHeight);
+        window.visualViewport?.addEventListener('scroll', adjustTerminalHeight);
+        window.addEventListener('resize', adjustTerminalHeight);
+
+        // Virtual toolbar management
+        const toolbarToggle = document.querySelector('.toolbar-toggle');
+        const toolbarButtons = document.querySelector('.toolbar-buttons');
+        toolbarToggle?.addEventListener('click', () => {
+            toolbarButtons.style.display = toolbarButtons.style.display === 'none' ? 'flex' : 'none';
+        });
+
+        document.querySelectorAll('.toolbar-buttons button').forEach(button => {
+            button.addEventListener('click', () => {
+                const key = button.getAttribute('data-key');
+                simulateKeyPress(key);
+            });
+        });
+    </script>
+</body>
+</html>

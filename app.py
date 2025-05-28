@@ -9,10 +9,17 @@ import platform
 import requests
 import random
 import string
+import sqlite3
+import sys
+import io
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from captcha.image import ImageCaptcha
+
+from gevent import pywsgi
+from geventwebsocket.handler import WebSocketHandler
 
 import db
 
@@ -22,6 +29,9 @@ import py7zr
 import zipfile
 import tarfile
 import psutil
+import subprocess
+
+debug = False
 
 custom_mime_types = {
     '.webp': 'image/webp',
@@ -74,9 +84,13 @@ def search_in_json(datas, query):
 
 app = Flask(__name__)
 
-CORS(app)
+if debug:
+    app.secret_key = 'aaaaaaaaaaaaaaaaaaaaa'
+else:
+    app.secret_key = secrets.token_hex(16)
 
-app.secret_key = secrets.token_hex(16)
+CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 def config():
     with open("config.json", "rb") as file:
@@ -87,7 +101,43 @@ def config():
 
 VERSION = config().get("version")
 
-def get_parent_directory(path):
+def get_dir(path):
+    details = []
+    for entry in os.scandir(path):
+        try:
+            if entry.is_file() or entry.is_dir():
+                mod_time = datetime.fromtimestamp(entry.stat().st_mtime)
+                mod_time_timestamp = int(mod_time.timestamp())
+            else:
+                mod_time_timestamp = None
+
+            if entry.is_file():
+                size = os.path.getsize(entry.path)
+                mimetype = get_file_mimetype(entry.name)
+                details.append({
+                    'name': entry.name,
+                    'mimetype': mimetype,
+                    'type': mimetype.split("/")[0] if mimetype else None,
+                    'is_dir': False,
+                    'size': size,
+                    'mod_time_timestamp': mod_time_timestamp,
+                    'mod_time': mod_time.strftime('%Y-%m-%d %H:%M:%S') if mod_time_timestamp else 'Unknown'
+                })
+            elif entry.is_dir():
+                subdir_count = sum([1 for _ in os.scandir(entry.path) if _.is_dir()])
+                file_count = sum([1 for _ in os.scandir(entry.path) if _.is_file()])
+                details.append({
+                    'name': entry.name,
+                    'is_dir': True,
+                    'size': f'{subdir_count} folders, {file_count} files',
+                    'mod_time_timestamp': mod_time_timestamp,
+                    'mod_time': mod_time.strftime('%Y-%m-%d %H:%M:%S') if mod_time_timestamp else 'Unknown'
+                })
+        except:
+            pass
+    return details
+
+def get_parent_directory(path: str):
     if '/' in path:
         return path.rsplit('/', 1)[0]
     return ''
@@ -136,42 +186,6 @@ def gen_random_id(len_ = 16):
 @app.context_processor
 def utility_processor():
     return dict(formatSize=formatSize)
-
-def get_dir(path):
-    details = []
-    for entry in os.scandir(path):
-        try:
-            if entry.is_file() or entry.is_dir():
-                mod_time = datetime.fromtimestamp(entry.stat().st_mtime)
-                mod_time_timestamp = int(mod_time.timestamp())
-            else:
-                mod_time_timestamp = None
-
-            if entry.is_file():
-                size = os.path.getsize(entry.path)
-                mimetype = get_file_mimetype(entry.name)
-                details.append({
-                    'name': entry.name,
-                    'mimetype': mimetype,
-                    'type': mimetype.split("/")[0] if mimetype else None,
-                    'is_dir': False,
-                    'size': size,
-                    'mod_time_timestamp': mod_time_timestamp,
-                    'mod_time': mod_time.strftime('%Y-%m-%d %H:%M:%S') if mod_time_timestamp else 'Unknown'
-                })
-            elif entry.is_dir():
-                subdir_count = sum([1 for _ in os.scandir(entry.path) if _.is_dir()])
-                file_count = sum([1 for _ in os.scandir(entry.path) if _.is_file()])
-                details.append({
-                    'name': entry.name,
-                    'is_dir': True,
-                    'size': f'{subdir_count} folders, {file_count} files',
-                    'mod_time_timestamp': mod_time_timestamp,
-                    'mod_time': mod_time.strftime('%Y-%m-%d %H:%M:%S') if mod_time_timestamp else 'Unknown'
-                })
-        except:
-            pass
-    return details
 
 def get_file_details(file_path):
     try:
@@ -259,14 +273,52 @@ def login():
                     app.permanent_session_lifetime = timedelta(days=365*100)
 
                     session['captcha_text'] = None
-                    return redirect(url_for('index'))
+                    # Setting the default path based on the operating system
+                    if platform.system() == 'Linux' and os.geteuid() == 0:
+                        default_path = '/root'.replace(os.sep, '/')
+                    else:
+                        default_path = os.path.expanduser('~').replace(os.sep, '/')
+                        if platform.system() == 'Windows':
+                            # Remove a drive (such as C:) from the path
+                            default_path = default_path.replace('C:', '', 1)
+                    return redirect(url_for('index', path=default_path))
                 else:
                     flash('Invalid username or password. Please try again.', 'danger')
             else:
                 flash('Invalid captcha. Please try again.', 'danger')
         return render_template('login.html', version=VERSION)
     else:
-        return redirect(url_for('index'))
+        # If the user is already logged in, they will be redirected to the appropriate path.
+        if platform.system() == 'Linux' and os.geteuid() == 0:
+            default_path = '/root'.replace(os.sep, '/')
+        else:
+            default_path = os.path.expanduser('~').replace(os.sep, '/')
+            if platform.system() == 'Windows':
+                # Remove a drive (such as C:) from the path
+                default_path = default_path.replace('C:', '', 1)
+        return redirect(url_for('index', path=default_path))
+
+@app.route('/files/<path:current_path>/check_files', methods=['POST'])
+def file_manager_check_files(current_path):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    full_path = os.path.join('/', current_path.replace('/', os.sep))
+    data = request.get_json()
+    file_paths = data.get('file_paths', [])
+
+    try:
+        existing_files = []
+        for relative_path in file_paths:
+            # Prevent Directory Traversal
+            if '..' in relative_path or relative_path.startswith('/'):
+                continue
+            destination_path = os.path.join(full_path, relative_path.replace('/', os.sep))
+            if os.path.exists(destination_path):
+                existing_files.append(relative_path)
+        return jsonify({'success': True, 'existing_files': existing_files})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/files', methods=['GET', 'POST'])
 @app.route('/files/<path:current_path>', methods=['GET', 'POST'])
@@ -278,19 +330,41 @@ def file_manager(current_path=''):
     full_path = os.path.join('/', current_path.replace('/', os.sep))
 
     if request.method == 'POST':
+        if 'complete' in request.form:
+            flash('Folder uploaded successfully!', 'success')
+            return '', 200
+
         if 'file' not in request.files:
             flash('No file part', 'danger')
             return redirect(request.url)
-        
+
         file = request.files['file']
-        
+        relative_path = request.form.get('relative_path', file.filename)
+
         if file.filename == '':
             flash('No selected file', 'danger')
             return redirect(request.url)
-        
-        file.save(os.path.join(full_path, file.filename))
-        flash('File uploaded successfully!', 'success')
-        return redirect(request.url)
+
+        # Prevent Directory Traversal
+        if '..' in relative_path or relative_path.startswith('/'):
+            flash('Invalid file path', 'danger')
+            return redirect(request.url)
+
+        # Creating a destination route
+        destination_path = os.path.join(full_path, relative_path.replace('/', os.sep))
+        destination_dir = os.path.dirname(destination_path)
+
+        try:
+            # Create subfolders (including the root folder) if they do not exist
+            if destination_dir:
+                os.makedirs(destination_dir, exist_ok=True)
+            # Save file
+            file.save(destination_path)
+        except Exception as e:
+            flash(f'Error saving file: {str(e)}', 'danger')
+            return redirect(request.url)
+
+        return '', 200
 
     if not os.path.exists(full_path) or not os.path.isdir(full_path):
         flash('The system cannot find the path specified.', 'danger')
@@ -337,44 +411,58 @@ def create_directory_route():
 
     return redirect(url_for('file_manager', current_path=current_path))
 
-@app.route('/delete_directory/<path:dirpath>', methods=['DELETE'])
-def delete_directory_route(dirpath):
+@app.route('/create_file', methods=['POST'])
+def create_file_route():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    full_path = os.path.join('/', dirpath.replace('/', os.sep))
+    current_path = request.form.get('current_path', '')
+    file_name = request.form.get('file_name', '')
 
-    try:
-        if os.path.isdir(full_path):
-            shutil.rmtree(full_path)
-            flash(f'Directory "{dirpath}" deleted successfully!', 'success')
-        else:
-            flash(f'Directory "{dirpath}" not found.', 'danger')
-    except Exception as e:
-        flash(f'Error deleting directory: {str(e)}', 'danger')
+    if current_path and file_name:
+        full_path = os.path.join('/', current_path.replace('/', os.sep))
 
-    return '', 204
+        os.makedirs(full_path, exist_ok=True)
 
-@app.route('/delete_file/<path:filepath>', methods=['DELETE'])
-def delete_file(filepath):
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
+        file_path = os.path.join(full_path, file_name)
 
-    full_path = os.path.join('/', filepath.replace('/', os.sep))
+        with open(file_path, 'w') as new_file:
+            pass  # Creates an empty file
+        
+        flash(f'File "{file_name}" created successfully!', 'success')
 
-    try:
-        if os.path.isfile(full_path):
-            os.remove(full_path)
-            flash(f'File "{filepath}" deleted successfully!', 'success')
-        else:
-            flash(f'File "{filepath}" not found.', 'danger')
-    except Exception as e:
-        flash(f'Error deleting file: {str(e)}', 'danger')
+        return redirect(url_for('file_editor', file_path=file_path))
 
-    return '', 204
+    return redirect(url_for('file_manager', current_path=current_path))
 
 @app.route('/rename', methods=['POST'])
 def rename_item():
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    current_path = request.form.get('current_path', '')
+    old_name = request.form.get('old_name', '')
+    new_name = request.form.get('new_name', '')
+
+    if current_path and old_name and new_name:
+        full_path_old = os.path.join('/', current_path.replace('/', os.sep), old_name)
+        full_path_new = os.path.join('/', current_path.replace('/', os.sep), new_name)
+
+        try:
+            os.rename(full_path_old, full_path_new)
+            return jsonify({
+                'success': True,
+                'message': f'Item "{old_name}" renamed to "{new_name}" successfully!',
+                'new_name': new_name,
+                'current_path': current_path
+            })
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    return jsonify({'success': False, 'error': 'Invalid input'}), 400
+
+@app.route('/rename_file_editor', methods=['POST'])
+def rename_file_editor():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
@@ -392,53 +480,10 @@ def rename_item():
         except Exception as e:
             flash(f'Error renaming item: {str(e)}', 'danger')
 
-    return redirect(url_for('file_manager', current_path=current_path))
+        return redirect(url_for('file_editor', file_path=full_path_new))
 
-@app.route('/copy', methods=['POST'])
-def copy_file():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-
-    file_path = request.form.get('file_path', '')
-    new_path = request.form.get('new_path', '')
-
-    if not file_path or not new_path:
-        return jsonify({'error': 'Invalid file path or destination path'}), 400
-
-    try:
-        file_path = os.path.join('/', file_path.replace('/', os.sep))
-        new_path = os.path.join('/', new_path.replace('/', os.sep))
-        
-        shutil.copy2(file_path, new_path)
-        flash(f'File copied to "{new_path}" successfully!', 'success')
-        return jsonify({'success': True}), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/cut', methods=['POST'])
-def cut_file():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-
-    file_path = request.form.get('file_path', '')
-    new_path = request.form.get('new_path', '')
-
-    if not file_path or not new_path:
-        return jsonify({'error': 'Invalid file path or destination path'}), 400
-
-    try:
-        file_path = os.path.join('/', file_path.replace('/', os.sep))
-        new_path = os.path.join('/', new_path.replace('/', os.sep))
-
-        destination_dir = os.path.dirname(new_path)
-        if not os.path.exists(destination_dir):
-            os.makedirs(destination_dir)
-
-        shutil.move(file_path, new_path)
-        flash(f'File moved to "{new_path}" successfully!', 'success')
-        return jsonify({'success': True}), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    flash('The file name did not change.', 'danger')
+    return redirect(url_for('file_editor', file_path=full_path_old))
 
 @app.route('/extract', methods=['POST'])
 def extract_file():
@@ -638,7 +683,7 @@ def change_password():
     return jsonify({"error": "Invalid password"}), 400
 
 @app.route('/file_editor/<path:file_path>', methods=['GET', 'POST'])
-def file_editor(file_path):
+def file_editor(file_path: str):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
@@ -649,14 +694,34 @@ def file_editor(file_path):
         parent_path = os.path.dirname(file_path)
         return redirect(url_for('index', path=parent_path))
 
+    file_name = os.path.basename(file_path)
+    directory_path = os.path.dirname(file_path)
+    mimetype = get_file_mimetype(full_path)
+    is_database = mimetype == 'application/x-sqlite3' or file_name.endswith(('.db', '.sqlite'))
+
+    if is_database and request.method == 'GET':
+        try:
+            conn = sqlite3.connect(full_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = [row[0] for row in cursor.fetchall()]
+            conn.close()
+            return render_template('file_editor.html', file_path=file_path, file_name=file_name, 
+                                 current_path=directory_path, is_database=True, tables=tables, 
+                                 version=VERSION)
+        except Exception as e:
+            flash(f'Error accessing database: {str(e)}', 'danger')
+            return redirect(url_for('index', path=directory_path))
+
+    content = ""
     if request.method == 'POST':
         content = request.form.get('content')
         content = content.replace("\r\n", "\n")
-
         try:
             with open(full_path, 'w', encoding='utf-8') as file:
                 file.write(content)
             flash('File saved successfully.', 'success')
+            return redirect(url_for('file_editor', file_path=file_path))
         except Exception as e:
             flash(f'Error saving file: {str(e)}', 'danger')
 
@@ -667,7 +732,7 @@ def file_editor(file_path):
         try:
             with open(full_path, 'rb') as file:
                 content = file.read().decode('utf-8', errors='replace')
-            flash('File contains invalid UTF-8 characters but was read successfully as binary.', 'warning')
+            flash('File contains invalid UTF-8 characters but was read as binary.', 'warning')
         except Exception as e:
             flash(f'Error reading file: {str(e)}', 'danger')
             content = ''
@@ -675,7 +740,129 @@ def file_editor(file_path):
         flash(f'Error reading file: {str(e)}', 'danger')
         content = ''
 
-    return render_template('file_editor.html', file_path=file_path, content=content, version=VERSION)
+    return render_template('file_editor.html', file_path=file_path, file_name=file_name, 
+                         current_path=directory_path, content=content, is_database=False, 
+                         version=VERSION)
+
+@app.route('/api/database/<path:file_path>/tables/<table_name>', methods=['GET'])
+def get_table_data(file_path, table_name):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    full_path = os.path.join('/', file_path.replace('/', os.sep))
+    try:
+        conn = sqlite3.connect(full_path)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info('{table_name}');")
+        columns_info = cursor.fetchall()
+        columns = [col[1] for col in columns_info]
+        pk_column = next((col[1] for col in columns_info if col[5] == 1), 'rowid')  # Primary key or rowid
+
+        cursor.execute(f"SELECT {pk_column}, * FROM '{table_name}';")  # Taking pk_column as the first column
+        rows = cursor.fetchall()
+        conn.close()
+
+        return jsonify({'success': True, 'columns': columns, 'rows': rows, 'pk_column': pk_column})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/database/<path:file_path>/tables/<table_name>/add', methods=['POST'])
+def add_table_row(file_path, table_name):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    full_path = os.path.join('/', file_path.replace('/', os.sep))
+    data = request.form.to_dict()
+    try:
+        conn = sqlite3.connect(full_path)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info('{table_name}');")
+        columns = [col[1] for col in cursor.fetchall()]
+        values = [data.get(col, '') for col in columns]
+        placeholders = ','.join(['?' for _ in columns])
+        cursor.execute(f"INSERT INTO '{table_name}' ({','.join(columns)}) VALUES ({placeholders});", values)
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'message': 'Row added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/database/<path:file_path>/tables/<table_name>/update', methods=['POST'])
+def update_table_row(file_path, table_name):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    full_path = os.path.join('/', file_path.replace('/', os.sep))
+    data = request.form.to_dict()
+    pk_value = data.get('old_pk_value')
+
+    try:
+        conn = sqlite3.connect(full_path)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info('{table_name}');")
+        columns_info = cursor.fetchall()
+        columns = [col[1] for col in columns_info]
+        pk_column = next((col[1] for col in columns_info if col[5] == 1), 'rowid')
+
+        valid_columns = [col for col in columns if col != pk_column]  # Remove pk_column from update
+        updates = [f"{col}=?" for col in valid_columns]
+        values = [data.get(col, '') for col in valid_columns]
+        values.append(pk_value)
+        sql = f"UPDATE '{table_name}' SET {','.join(updates)} WHERE {pk_column}=?;"
+
+        cursor.execute(sql, values)
+        conn.commit()
+        conn.close()
+
+        if cursor.rowcount == 0:
+            return jsonify({'success': False, 'error': 'No rows updated. Check if pk_value exists.'}), 404
+        return jsonify({'success': True, 'message': 'Row updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/database/<path:file_path>/tables/<table_name>/delete', methods=['POST'])
+def delete_table_row(file_path, table_name):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    full_path = os.path.join('/', file_path.replace('/', os.sep))
+    pk_value = request.form.get('pk_value')
+
+    try:
+        conn = sqlite3.connect(full_path)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info('{table_name}');")
+        columns_info = cursor.fetchall()
+        pk_column = next((col[1] for col in columns_info if col[5] == 1), 'rowid')
+
+        sql = f"DELETE FROM '{table_name}' WHERE {pk_column}=?;"
+
+        cursor.execute(sql, (pk_value,))
+        conn.commit()
+        conn.close()
+
+        if cursor.rowcount == 0:
+            return jsonify({'success': False, 'error': 'No rows deleted. Check if pk_value exists.'}), 404
+        return jsonify({'success': True, 'message': 'Row deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/save_file/<path:file_path>', methods=['POST'])
+def save_file(file_path: str):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    full_path = os.path.join('/', file_path.replace('/', os.sep))
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        return jsonify({'success': False, 'error': 'File not found'}), 404
+
+    content = request.form.get('content', '').replace("\r\n", "\n")
+    try:
+        with open(full_path, 'w', encoding='utf-8') as file:
+            file.write(content)
+        return jsonify({'success': True, 'message': 'File saved successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error saving file: {str(e)}'}), 500
 
 @app.route('/api/system-info', methods=['GET'])
 def system_info():
@@ -827,7 +1014,269 @@ def file_share(random_id_or_shared_url='', path2=''):
 
     return '', 403
 
+@app.route('/delete_files', methods=['POST'])
+def delete_files():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    filepaths = request.form.getlist('filepaths[]')
+
+    try:
+        for filepath in filepaths:
+            full_path = os.path.join('/', filepath.replace('/', os.sep))
+            if os.path.isfile(full_path):
+                os.remove(full_path)
+            elif os.path.isdir(full_path):
+                shutil.rmtree(full_path)
+        flash(f'{len(filepaths)} item(s) deleted successfully!', 'success')
+    except Exception as e:
+        flash(f'Error deleting items: {str(e)}', 'danger')
+
+    return jsonify({'success': True}), 200
+
+@app.route('/copy', methods=['POST'])
+def copy_file():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    file_paths = request.form.getlist('file_paths[]')
+    new_path = request.form.get('new_path', '')
+
+    if not file_paths or not new_path:
+        return jsonify({'error': 'Invalid file paths or destination path'}), 400
+
+    try:
+        for file_path in file_paths:
+            file_path = os.path.join('/', file_path.replace('/', os.sep))
+            new_file_path = os.path.join('/', new_path.replace('/', os.sep), os.path.basename(file_path))
+            if os.path.isfile(file_path):
+                shutil.copy2(file_path, new_file_path)
+            elif os.path.isdir(file_path):
+                shutil.copytree(file_path, new_file_path, dirs_exist_ok=True)
+        flash(f'{len(file_paths)} item(s) copied to "{new_path}" successfully!', 'success')
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/cut', methods=['POST'])
+def cut_file():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    file_paths = request.form.getlist('file_paths[]')
+    new_path = request.form.get('new_path', '')
+
+    if not file_paths or not new_path:
+        return jsonify({'error': 'Invalid file paths or destination path'}), 400
+
+    try:
+        for file_path in file_paths:
+            file_path = os.path.join('/', file_path.replace('/', os.sep))
+            new_file_path = os.path.join('/', new_path.replace('/', os.sep), os.path.basename(file_path))
+            destination_dir = os.path.dirname(new_file_path)
+            if not os.path.exists(destination_dir):
+                os.makedirs(destination_dir)
+            shutil.move(file_path, new_file_path)
+        flash(f'{len(file_paths)} item(s) moved to "{new_path}" successfully!', 'success')
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def get_prompt():
+    """Create a terminal prompt"""
+    current_dir = session.get('terminal_cwd', os.path.expanduser('~'))
+    if platform.system() == 'Windows':
+        return f"{current_dir}> "
+    else:
+        user = os.getlogin()
+        host = platform.node()
+        home = os.path.expanduser('~')
+        display_dir = current_dir.replace(home, '~') if current_dir.startswith(home) else current_dir
+        return f"{user}@{host}:{display_dir}$ "
+
+def get_autocomplete_suggestions(prefix: str):
+    """Get autocomplete suggestions for paths and files (case-insensitive)"""
+    current_dir = session.get('terminal_cwd', os.path.expanduser('~'))
+    try:
+        if not os.path.isdir(current_dir):
+            return []
+
+        prefix = prefix.replace('\\', '/')
+        base_path = current_dir
+        query = prefix
+
+        if '/' in prefix:
+            parts = prefix.rsplit('/', 1)
+            if len(parts) == 2 and parts[0]:
+                base_path = os.path.normpath(os.path.join(current_dir, parts[0]))
+                query = parts[1]
+            else:
+                query = parts[0]
+
+        if not os.path.isdir(base_path):
+            return []
+
+        items = os.listdir(base_path)
+        suggestions = [item for item in items if item.lower().startswith(query.lower())]
+
+        if base_path != current_dir:
+            relative_base = parts[0] if '/' in prefix else ''
+            suggestions = [f"{relative_base}/{item}" if relative_base else item for item in suggestions]
+        else:
+            suggestions = [item for item in suggestions]
+
+        suggestions.sort(key=str.lower)
+        return suggestions
+    except Exception as e:
+        return []
+
+def run_command(command: str):
+    """Execute terminal command while keeping current path"""
+    try:
+        current_dir = session.get('terminal_cwd', os.path.expanduser('~'))
+        if not os.path.isdir(current_dir):
+            session['terminal_cwd'] = os.path.expanduser('~')
+            current_dir = session['terminal_cwd']
+
+        if command.strip().lower().startswith('cd '):
+            new_dir = command[3:].strip()
+            if new_dir:
+                if os.path.isabs(new_dir):
+                    target_dir = new_dir
+                else:
+                    target_dir = os.path.join(current_dir, new_dir)
+                target_dir = os.path.normpath(target_dir)
+                if os.path.isdir(target_dir):
+                    session['terminal_cwd'] = target_dir
+                    return f"Changed directory to {target_dir}"
+                else:
+                    return f"Error: Directory {target_dir} does not exist"
+            else:
+                session['terminal_cwd'] = os.path.expanduser('~')
+                return f"Changed directory to {session['terminal_cwd']}"
+        
+        cmd = f'cmd /C "{command}"' if platform.system() == 'Windows' else command
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=current_dir
+        )
+        stdout, stderr = process.communicate(timeout=30)
+        if stderr:
+            return stderr
+
+        return stdout or "Command executed successfully."
+    except subprocess.TimeoutExpired:
+        return "Error: Command timed out."
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@socketio.on('execute_command')
+def handle_command(data):
+    if not session.get('logged_in'):
+        emit('command_output', {'output': 'Error: Unauthorized'})
+        return
+    command = data.get('command', '').strip()
+    if command:
+        output = run_command(command)
+        emit('command_output', {'output': output})
+        emit('prompt', {'prompt': get_prompt()})
+
+@socketio.on('get_prompt')
+def send_prompt():
+    emit('prompt', {'prompt': get_prompt()})
+
+@socketio.on('autocomplete')
+def handle_autocomplete(data):
+    prefix = data.get('prefix', '')
+    suggestions = get_autocomplete_suggestions(prefix)
+    emit('autocomplete', {'suggestions': suggestions})
+
+@app.route('/terminal')
+def terminal():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    if 'terminal_cwd' not in session:
+        session['terminal_cwd'] = os.path.expanduser('~')
+    return render_template('terminal.html', version=config().get("version"))
+
+@app.route('/api/check-update', methods=['GET'])
+def check_update():
+    try:
+        # Get current version from VERSION file
+        with open('VERSION', 'r') as f:
+            current_version = f.read().strip()
+
+        # Get latest version from GitHub
+        response = requests.get('https://raw.githubusercontent.com/AbolDev/File-Manager/master/VERSION')
+        response.raise_for_status()
+        latest_version = response.text.strip()
+
+        update_available = current_version != latest_version
+        return jsonify({
+            'update_available': update_available,
+            'current_version': current_version,
+            'latest_version': latest_version
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/apply-update', methods=['POST'])
+def apply_update():
+    try:
+        # Get the absolute path of the project root (where app.py is located)
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        while not os.path.exists(os.path.join(project_root, 'app.py')):
+            project_root = os.path.dirname(project_root)
+            if project_root == os.path.dirname(project_root):  # Prevent infinite loop
+                raise Exception("Could not find project root containing app.py")
+
+        # Download the latest release as a zip file
+        repo_url = 'https://github.com/AbolDev/File-Manager/archive/refs/heads/master.zip'
+        response = requests.get(repo_url)
+        response.raise_for_status()
+
+        # Extract the zip file
+        zip_file = zipfile.ZipFile(io.BytesIO(response.content))
+        extract_path = os.path.join(project_root, 'temp_update')
+        zip_file.extractall(extract_path)
+        zip_file.close()
+
+        # Find the extracted folder (e.g., File-Manager-master)
+        extracted_folder = os.path.join(extract_path, os.listdir(extract_path)[0])
+
+        # Backup critical files (e.g., database)
+        db_path = os.path.join(project_root, 'file-manager.db')
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, os.path.join(project_root, 'file-manager.db.backup'))
+
+        # Replace current files with new ones
+        for item in os.listdir(extracted_folder):
+            src = os.path.join(extracted_folder, item)
+            dst = os.path.join(project_root, item)
+            if os.path.isdir(src):
+                if os.path.exists(dst):
+                    shutil.rmtree(dst)
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
+
+        # Clean up temporary files
+        shutil.rmtree(extract_path)
+
+        # Restart the application
+        python = sys.executable
+        subprocess.Popen([python, os.path.join(project_root, 'app.py')])
+        os._exit(0)  # Terminate the current process
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     config_ = config()
     port = config_['port']
-    app.run(host="0.0.0.0", port=port, debug=True)
+
+    # app.run(host="0.0.0.0", port=port, debug=debug)
+    socketio.run(app, host="0.0.0.0", port=port, debug=debug, use_reloader=False)

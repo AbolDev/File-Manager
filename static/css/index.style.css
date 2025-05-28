@@ -48,16 +48,6 @@ td {
     white-space: normal;
     text-overflow: ellipsis;
 }
-.alert-dismissible {
-    display: flex;
-    align-items: center;
-    position: relative;
-}
-.alert-dismissible .close {
-    margin-left: auto;
-    padding: 0.75rem 1rem;
-    color: inherit;
-}
 .sort {
     cursor: pointer;
 }
@@ -248,65 +238,33 @@ body.dark-mode .modal-content {
     box-sizing: border-box;
     padding: 5px;
 }
-
-
-
-
-.custom-alert {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-    max-width: 80%;
-    width: 300px;
+body.dark-mode .alert {
+    background-color: #1e272e;
+    color: #f1f2f6;
 }
-
-.custom-alert p {
-    margin-bottom: 15px;
-    word-break: break-all;
+body.dark-mode .alert-success .close {
+    color: #155724;
 }
-
-.custom-alert button {
-    margin: 5px;
-    padding: 8px 12px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+body.dark-mode .alert-danger .close {
+    color: #721c24;
 }
-
-.custom-alert {
-    background-color: #ffffff;
-    color: #333333;
-    border: 1px solid #e0e0e0;
+body.dark-mode .alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
 }
-
-.custom-alert button {
-    background-color: #f0f0f0;
-    color: #333333;
+body.dark-mode .alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
 }
-
-.custom-alert button:hover {
-    background-color: #e0e0e0;
+.alert-dismissible {
+    display: flex;
+    align-items: center;
+    position: relative;
 }
-
-body.dark-mode {
-    .custom-alert {
-        background-color: #333333;
-        color: #ffffff;
-        border: 1px solid #555555;
-    }
-
-    .custom-alert button {
-        background-color: #4a4a4a;
-        color: #ffffff;
-    }
-
-    .custom-alert button:hover {
-        background-color: #5a5a5a;
-    }
+.alert-dismissible .close {
+    margin-left: auto;
+    padding: 0.75rem 1rem;
+    color: inherit;
 }

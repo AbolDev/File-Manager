@@ -1,0 +1,127 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background-color: #000;
+    overflow: hidden;
+    min-height: 100vh;
+}
+
+.terminal-container {
+    background-color: #000;
+    color: #fff;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    width: 95%;
+    height: 80vh;
+    margin: 20px auto;
+    padding: 10px;
+    border: 1px solid #333;
+    border-radius: 5px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.terminal-content {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
+.terminal-output {
+    margin: 0;
+    padding: 2px 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
+.terminal-input-line {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 2px 0;
+    position: sticky;
+    bottom: 0;
+    background-color: #000;
+}
+
+.prompt {
+    color: #0f0;
+    margin-right: 5px;
+    white-space: nowrap;
+}
+
+.command-input {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    outline: none;
+    flex-grow: 1;
+    width: 0;
+}
+
+.command-input:focus {
+    outline: none;
+}
+
+.mobile-toolbar {
+    display: none;
+    position: fixed;
+    right: 10px;
+    z-index: 1000;
+    transition: bottom 0.2s ease;
+}
+
+.toolbar-toggle {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.toolbar-buttons {
+    display: none;
+    flex-wrap: wrap;
+    gap: 5px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 5px;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.toolbar-buttons button {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.toolbar-buttons button:hover {
+    background-color: #555;
+}
+
+@media (max-width: 600px) {
+    .terminal-container {
+        width: 95%;
+        margin: 5px auto;
+        padding: 5px;
+        font-size: 12px;
+    }
+
+    .mobile-toolbar {
+        display: block;
+    }
+}

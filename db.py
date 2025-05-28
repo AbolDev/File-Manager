@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, or_, Column, Integer, String, Boolean, JSON, Float, Text, event
+from sqlalchemy import create_engine, or_, Column, Integer, String, Boolean, JSON, event
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
 from datetime import datetime, timedelta
 import threading
