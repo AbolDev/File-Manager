@@ -944,7 +944,7 @@ def system_info_page():
 def settings_page():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
-    return render_template('settings.html')
+    return render_template('settings.html', version=VERSION)
 
 @app.route('/show_file_share/<string:random_id_or_shared_url>')
 @app.route('/show_file_share/<string:random_id_or_shared_url>/')
@@ -1276,7 +1276,6 @@ def apply_update():
 
 if __name__ == '__main__':
     config_ = config()
-    port = config_['port']
+    port = int(config_['port'])
 
-    # app.run(host="0.0.0.0", port=port, debug=debug)
     socketio.run(app, host="0.0.0.0", port=port, debug=debug, use_reloader=False)
